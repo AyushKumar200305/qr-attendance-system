@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}All Students{% endblock %}
+{% block content %}
+<div class="pt">
+  <h1>👥 All Students</h1>
+  <p>Subject-wise attendance with AI risk prediction.</p>
+</div>
+
+<!-- EXPORT -->
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+  {% for code,name in subjects.items() %}
+  <a href="{{ url_for('export_csv', subject=code) }}" class="btn btn-s">
+    ⬇ {{ code }} CSV
+  </a>
+  {% endfor %}
+  <a href="{{ url_for('export_csv', subject='all') }}" class="btn btn-s btn-p">⬇ All CSV</a>
+</div>
+
+<!-- ADD STUDENT -->
+<div class="card" style="margin-bottom:20px;">
+  <div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:12px;">➕ Add Student Manually</div>
+  <form method="POST" action="{{ url_for('add_student') }}">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <input name="roll_no" placeholder="Roll No e.g. 24BCS001"
+             style="flex:1;min-width:140px;"
+             oninput="this.value=this.value.toUpperCase()"/>
+      <input name="name" placeholder="Full Name" style="flex:2;min-width:160px;"/>
+      <button type="submit" class="btn btn-p" style="flex-shrink:0;">Add</button>
+    </div>
+  </form>
+</div>
+
+<!-- STUDENT TABLE -->
+<div class="card">
+  {% if data %}
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Roll No</th><th>Name</th>
+        {% for code in subjects %}<th>{{ code }} %</th>{% endfor %}
+        <th>Risk</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for d in data %}
+    {% set s = d.student %}
+    <tr>
+      <td><code style="font-family:var(--mono);font-size:.82rem;color:var(--a2);">{{ s.roll_no }}</code></td>
+      <td style="font-size:.85rem;">{{ s.name }}</td>
+      {% for sm in d.summary %}
+      <td>
+        <div style="font-weight:700;font-size:.85rem;color:{% if sm.status=='safe' %}var(--ok){% elif sm.status=='warn' %}var(--warn){% else %}var(--bad){% endif %};">
+          {{ sm.pct }}%
+        </div>
+        <div class="pbar" style="width:60px;">
+          <div class="pbar-fill pbar-{% if sm.status=='safe' %}ok{% elif sm.status=='warn' %}warn{% else %}bad{% endif %}"
+               style="width:{{ [sm.pct,100]|min }}%;"></div>
+        </div>
+      </td>
+      {% endfor %}
+      <td>
+        {% for r in risk_list %}{% if r.roll_no == s.roll_no %}
+        <span class="risk-dot risk-{{ r.worst_risk }}"></span>
+        <span class="b b-{{ r.worst_risk }}" style="font-size:.68rem;">{{ r.worst_risk|upper }}</span>
+        {% endif %}{% endfor %}
+      </td>
+      <td>
+        <form method="POST" action="{{ url_for('delete_student', student_id=s.id) }}">
+          <button type="submit" class="btn btn-s btn-bad"
+                  onclick="return confirm('Delete {{ s.name }} ({{ s.roll_no }})? All their attendance records will also be deleted.')">
+            🗑 Delete
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:30px;color:var(--muted);">No students yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

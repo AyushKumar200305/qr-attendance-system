@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="day-banner">
+  <div class="pulse"></div>
+  <div style="font-weight:600;">{{ today }}</div>
+  <div style="margin-left:auto;font-size:.78rem;">
+    👋 {{ teacher.name if teacher else '' }}
+  </div>
+</div>
+
+<div class="pt" style="margin-top:20px;">
+  <h1>Dashboard</h1>
+  <p>Overview of attendance, insights, and alerts.</p>
+</div>
+
+<!-- AI INSIGHTS -->
+{% if insights %}
+<div style="margin-bottom:20px;">
+  <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;
+       letter-spacing:.5px;margin-bottom:10px;">🤖 AI Insights</div>
+  {% for ins in insights %}
+  <div class="insight insight-{{ ins.type }}">
+    <span style="font-size:1.1rem;">{{ ins.icon }}</span>
+    <span>{{ ins.text }}</span>
+    {% if ins.subject %}
+    <span class="b b-{{ ins.subject }}" style="margin-left:auto;">{{ ins.subject }}</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- QUICK ACTIONS -->
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;">
+  <a href="{{ url_for('generate_qr') }}" class="btn btn-p">🔲 Generate QR</a>
+  <a href="{{ url_for('all_students') }}" class="btn">👥 All Students</a>
+  <a href="{{ url_for('view_anomalies') }}" class="btn">🚨 Security Alerts</a>
+  <a href="{{ url_for('export_csv', subject='all') }}" class="btn">⬇ Export CSV</a>
+</div>
+
+<!-- ATTENDANCE HEATMAP -->
+{% if heatmap %}
+<div class="card" style="margin-bottom:20px;">
+  <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:14px;">
+    📅 Last 14 Days Attendance
+  </div>
+  <div style="display:flex;gap:4px;align-items:flex-end;height:60px;">
+    {% set max_val = heatmap.values()|max if heatmap.values()|max > 0 else 1 %}
+    {% for date, cnt in heatmap.items() %}
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+      <div style="width:100%;background:{% if cnt==0 %}var(--surf2){% elif cnt<5 %}rgba(99,102,241,.3){% elif cnt<15 %}rgba(99,102,241,.6){% else %}var(--accent){% endif %};
+           border-radius:3px;height:{{ [4, (cnt / max_val * 50)|int]|max }}px;"
+           title="{{ date }}: {{ cnt }} scans"></div>
+    </div>
+    {% endfor %}
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--muted);margin-top:4px;">
+    <span>{{ heatmap.keys()|list|first }}</span>
+    <span>Today</span>
+  </div>
+</div>
+{% endif %}
+
+<!-- RECENT SESSIONS -->
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <div style="font-size:.82rem;font-weight:700;color:var(--muted);">📋 Recent Sessions</div>
+  </div>
+  {% if sessions %}
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Subject</th><th>Session</th><th>Created</th>
+        <th>Status</th><th>Attended</th><th>Flags</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in sessions[:10] %}
+    <tr>
+      <td><span class="b b-{{ s.subject }}">{{ s.subject }}</span></td>
+      <td style="font-size:.82rem;">{{ s.label }}</td>
+      <td style="font-size:.75rem;color:var(--muted);">{{ s.created_at[:16] }}</td>
+      <td>
+        {% if s.active %}
+        <span style="color:var(--ok);font-size:.78rem;font-weight:700;">● Live</span>
+        {% else %}
+        <span style="color:var(--muted);font-size:.78rem;">● Closed</span>
+        {% endif %}
+      </td>
+      <td style="font-weight:700;color:var(--a2);">{{ s.att_count }}</td>
+      <td>
+        {% if s.flag_count > 0 %}
+        <span style="color:var(--bad);font-size:.78rem;font-weight:700;">⚠ {{ s.flag_count }}</span>
+        {% else %}
+        <span style="color:var(--muted);font-size:.75rem;">—</span>
+        {% endif %}
+      </td>
+      <td style="display:flex;gap:6px;">
+        <a href="{{ url_for('session_detail', sess_id=s.id) }}" class="btn btn-s">View</a>
+        {% if s.active %}
+        <form method="POST" action="{{ url_for('deactivate_sess', sess_id=s.id) }}" style="display:inline;">
+          <button type="submit" class="btn btn-s" style="color:var(--warn);border-color:var(--warn);"
+                  onclick="return confirm('Stop this QR?')">Stop</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:30px;color:var(--muted);font-size:.85rem;">
+    No sessions yet. <a href="{{ url_for('generate_qr') }}" style="color:var(--accent);">Generate your first QR →</a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- RECENT ANOMALIES -->
+{% if anomalies %}
+<div class="card" style="border-color:rgba(239,68,68,.2);">
+  <div style="font-size:.82rem;font-weight:700;color:var(--bad);margin-bottom:12px;">
+    🚨 Recent Security Alerts
+  </div>
+  {% for a in anomalies %}
+  <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;
+       border-bottom:1px solid var(--border);">
+    <span style="font-size:.72rem;padding:2px 6px;border-radius:4px;font-weight:700;flex-shrink:0;
+          background:{% if a.severity=='HIGH' %}rgba(239,68,68,.2){% else %}rgba(245,158,11,.2){% endif %};
+          color:{% if a.severity=='HIGH' %}var(--bad){% else %}var(--warn){% endif %};">
+      {{ a.severity }}
+    </span>
+    <div>
+      <div style="font-size:.82rem;">{{ a.description }}</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:2px;">{{ a.detected_at[:16] }}</div>
+    </div>
+  </div>
+  {% endfor %}
+  <a href="{{ url_for('view_anomalies') }}" style="font-size:.78rem;color:var(--bad);display:block;margin-top:10px;">
+    View all alerts →
+  </a>
+</div>
+{% endif %}
+{% endblock %}

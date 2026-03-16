@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>{% block title %}QR Attendance{% endblock %}</title>
+<style>
+:root {
+  --bg:      #0a0a0f;
+  --surf:    #13131a;
+  --surf2:   #1a1a24;
+  --border:  #2a2a3a;
+  --text:    #e8e8f0;
+  --muted:   #6b7280;
+  --accent:  #6366f1;
+  --a2:      #06b6d4;
+  --ok:      #10b981;
+  --warn:    #f59e0b;
+  --bad:     #ef4444;
+  --mono:    'Courier New', monospace;
+  --radius:  12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);
+     font-family:system-ui,-apple-system,sans-serif;
+     min-height:100vh;font-size:15px;line-height:1.6;}
+
+/* ── NAV ── */
+nav{background:var(--surf);border-bottom:1px solid var(--border);
+    padding:10px 20px;display:flex;align-items:center;
+    gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:100;}
+
+.nav-brand{font-weight:900;font-size:1rem;color:var(--text);
+           margin-right:8px;display:flex;align-items:center;gap:8px;}
+.nav-brand .logo{width:30px;height:30px;background:var(--accent);
+                 border-radius:8px;display:flex;align-items:center;
+                 justify-content:center;font-size:.9rem;}
+
+/* every nav item is a button */
+.nav-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 16px;border-radius:8px;font-size:.82rem;font-weight:700;
+  cursor:pointer;border:1px solid var(--border);
+  background:var(--surf2);color:var(--muted);
+  text-decoration:none;transition:all .15s;white-space:nowrap;
+}
+.nav-btn:hover{border-color:var(--accent);color:var(--text);background:rgba(99,102,241,.1);}
+
+/* colour variants */
+.nav-btn.green {border-color:rgba(16,185,129,.4); color:var(--ok);}
+.nav-btn.green:hover{background:rgba(16,185,129,.1);}
+.nav-btn.teal  {border-color:rgba(6,182,212,.4);  color:var(--a2);}
+.nav-btn.teal:hover{background:rgba(6,182,212,.1);}
+.nav-btn.purple{border-color:rgba(99,102,241,.5); color:#a5b4fc;
+                background:rgba(99,102,241,.08);}
+.nav-btn.purple:hover{background:rgba(99,102,241,.18);}
+.nav-btn.red   {border-color:rgba(239,68,68,.4);  color:var(--bad);}
+.nav-btn.red:hover{background:rgba(239,68,68,.1);}
+.nav-btn.warn  {border-color:rgba(245,158,11,.4); color:var(--warn);}
+.nav-btn.warn:hover{background:rgba(245,158,11,.1);}
+
+.nav-spacer{flex:1;}
+
+/* ── LAYOUT ── */
+.page{max-width:100%;padding:32px 60px;}
+.pt{margin-bottom:24px;}
+.pt h1{font-size:2.2rem;font-weight:800;margin-bottom:10px;}
+.pt p{color:var(--muted);font-size:.95rem;}
+
+/* ── CARDS ── */
+.card{background:var(--surf);border:1px solid var(--border);
+      border-radius:var(--radius);padding:28px;margin-bottom:18px;}
+.card-sm{background:var(--surf2);border:1px solid var(--border);
+         border-radius:10px;padding:16px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}
+@media(max-width:600px){.g2,.g3{grid-template-columns:1fr;}}
+
+/* ── FORMS ── */
+.fg{margin-bottom:16px;}
+.lbl{display:block;font-size:.78rem;font-weight:700;color:var(--muted);
+     margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
+input,select,textarea{
+  width:100%;background:var(--surf2);border:1px solid var(--border);
+  border-radius:8px;padding:10px 14px;color:var(--text);font-size:.9rem;
+  outline:none;transition:border-color .15s;font-family:inherit;}
+input:focus,select:focus{border-color:var(--accent);}
+input::placeholder{color:var(--muted);}
+
+/* ── BUTTONS (page content) ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+     padding:12px 24px;border-radius:8px;font-size:.95rem;font-weight:700;
+     cursor:pointer;border:1px solid var(--border);background:var(--surf2);
+     color:var(--text);text-decoration:none;transition:all .15s;white-space:nowrap;}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn-bl{width:100%;justify-content:center;}
+.btn-p{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn-p:hover{background:#4f46e5;color:#fff;}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:#fff;}
+.btn-ok:hover{background:#059669;color:#fff;}
+.btn-bad{background:var(--bad);border-color:var(--bad);color:#fff;}
+.btn-bad:hover{background:#dc2626;color:#fff;}
+.btn-s{padding:8px 16px;font-size:.8rem;}
+
+/* ── BADGES ── */
+.b{display:inline-block;padding:2px 8px;border-radius:4px;
+   font-size:.75rem;font-weight:800;}
+.b-SP{background:rgba(99,102,241,.2);color:#818cf8;}
+.b-DS{background:rgba(6,182,212,.2);color:#22d3ee;}
+.b-DM{background:rgba(16,185,129,.2);color:#34d399;}
+.b-safe{background:rgba(16,185,129,.15);color:var(--ok);}
+.b-warning{background:rgba(245,158,11,.15);color:var(--warn);}
+.b-danger{background:rgba(239,68,68,.15);color:var(--bad);}
+.b-critical{background:rgba(239,68,68,.3);color:#ff6b6b;}
+
+/* ── ALERTS ── */
+.fl{padding:12px 16px;border-radius:8px;font-size:.85rem;
+    margin-bottom:14px;border-left:3px solid;}
+.fl-info{background:rgba(6,182,212,.08);border-color:var(--a2);color:var(--a2);}
+.fl-ok{background:rgba(16,185,129,.08);border-color:var(--ok);color:var(--ok);}
+.fl-warn{background:rgba(245,158,11,.08);border-color:var(--warn);color:var(--warn);}
+.fl-bad{background:rgba(239,68,68,.08);border-color:var(--bad);color:var(--bad);}
+.flash-ok{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);
+  color:var(--ok);padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:.85rem;}
+.flash-bad{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+  color:var(--bad);padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:.85rem;}
+
+/* ── TABLE ── */
+.tbl{width:100%;border-collapse:collapse;font-size:.83rem;}
+.tbl th{padding:12px 14px;text-align:left;color:var(--muted);font-size:.8rem;
+        text-transform:uppercase;border-bottom:1px solid var(--border);}
+.tbl td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.04);}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:var(--surf2);}
+
+/* ── PROGRESS BAR ── */
+.pbar{height:6px;background:var(--surf2);border-radius:3px;overflow:hidden;margin-top:4px;}
+.pbar-fill{height:100%;border-radius:3px;transition:width .4s;}
+.pbar-ok{background:var(--ok);}
+.pbar-warn{background:var(--warn);}
+.pbar-bad{background:var(--bad);}
+
+/* ── SUBJECT OPTIONS ── */
+.subj-opt{display:flex;align-items:center;gap:10px;padding:12px 14px;
+  border:1px solid var(--border);border-radius:8px;cursor:pointer;
+  margin-bottom:8px;transition:all .15s;}
+.subj-opt:hover{border-color:var(--accent);background:rgba(99,102,241,.05);}
+.subj-opt input{width:auto;margin:0;}
+
+/* ── INSIGHT CARDS ── */
+.insight{display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border-radius:8px;font-size:.83rem;margin-bottom:8px;}
+.insight-info   {background:rgba(6,182,212,.07);border:1px solid rgba(6,182,212,.2);}
+.insight-warning{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);}
+.insight-danger {background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);}
+.insight-success{background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);}
+
+/* ── RISK ── */
+.risk-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;}
+.risk-safe    {background:var(--ok);}
+.risk-warning {background:var(--warn);}
+.risk-danger  {background:var(--bad);}
+.risk-critical{background:#ff0000;box-shadow:0 0 6px #ff0000;}
+
+/* ── DAY BANNER ── */
+.day-banner{background:var(--surf);border-bottom:1px solid var(--border);
+  padding:8px 20px;font-size:.8rem;color:var(--muted);
+  display:flex;align-items:center;gap:10px;}
+.pulse{width:8px;height:8px;background:var(--ok);border-radius:50%;
+  animation:pulse 2s infinite;flex-shrink:0;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <div class="logo">🎓</div>
+    QR Attend
+  </div>
+
+  <!-- Always visible -->
+  <a class="nav-btn green" href="{{ url_for('home') }}">🏠 Home</a>
+  <a class="nav-btn teal"  href="{{ url_for('my_stats') }}">📊 My Stats</a>
+
+  {% if session.get('teacher_ok') %}
+  <!-- Teacher buttons -->
+  <a class="nav-btn purple" href="{{ url_for('teacher_dashboard') }}">📋 Dashboard</a>
+  <a class="nav-btn purple" href="{{ url_for('generate_qr') }}">🔲 Generate QR</a>
+  <a class="nav-btn purple" href="{{ url_for('all_students') }}">👥 Students</a>
+  <a class="nav-btn warn"   href="{{ url_for('view_anomalies') }}">🚨 Alerts</a>
+  <div class="nav-spacer"></div>
+  <a class="nav-btn red"    href="{{ url_for('teacher_logout') }}">🔒 Lock</a>
+  {% else %}
+  <div class="nav-spacer"></div>
+  <a class="nav-btn purple" href="{{ url_for('teacher_gate') }}">👩‍🏫 Teacher Login</a>
+  {% endif %}
+</nav>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div style="max-width:1200px;margin:10px auto;padding:0 60px;">
+  {% for cat, msg in messages %}
+  <div class="flash-{{ 'ok' if cat == 'success' else 'bad' }}">{{ msg }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="page">
+{% block content %}{% endblock %}
+</div>
+
+</body>
+</html>

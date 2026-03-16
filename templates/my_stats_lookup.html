@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}My Stats{% endblock %}
+{% block content %}
+<div style="max-width:380px;margin:0 auto;padding-top:20px;">
+  <div class="pt">
+    <h1>📊 My Attendance</h1>
+    <p>Enter your roll number to check your attendance percentage.</p>
+  </div>
+  <div class="card">
+    <form method="POST">
+      <div class="fg">
+        <label class="lbl">Roll Number</label>
+        <input name="roll_no" placeholder="e.g. 24BCS001" required autofocus
+               oninput="this.value=this.value.toUpperCase()"
+               style="font-family:var(--mono);font-size:1rem;padding:13px;font-weight:700;"/>
+      </div>
+      <button type="submit" class="btn btn-p btn-bl">View Stats →</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

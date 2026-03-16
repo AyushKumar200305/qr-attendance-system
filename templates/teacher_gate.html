@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Teacher Login{% endblock %}
+{% block content %}
+<div style="max-width:400px;margin:40px auto;">
+  <div class="pt" style="text-align:center;">
+    <div style="font-size:2.5rem;margin-bottom:10px;">👩‍🏫</div>
+    <h1>{% if first_time %}Teacher Setup{% else %}Teacher Login{% endif %}</h1>
+    <p>{% if first_time %}Set up your name and PIN once. Remembered forever.{% else %}Enter your PIN to continue.{% endif %}</p>
+  </div>
+  <div class="card">
+    <form method="POST">
+      {% if first_time %}
+      <div class="fg">
+        <label class="lbl">Your Name</label>
+        <input name="name" placeholder="e.g. Dr. Ahmed" required autofocus/>
+      </div>
+      {% endif %}
+      <div class="fg">
+        <label class="lbl">PIN</label>
+        <input name="pin" type="password" placeholder="Min 4 digits" required {% if not first_time %}autofocus{% endif %}/>
+      </div>
+      {% if first_time %}
+      <div class="fg">
+        <label class="lbl">Confirm PIN</label>
+        <input name="pin2" type="password" placeholder="Repeat PIN" required/>
+      </div>
+      {% endif %}
+      <button type="submit" class="btn btn-p btn-bl" style="padding:13px;">
+        {% if first_time %}Complete Setup →{% else %}Login →{% endif %}
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

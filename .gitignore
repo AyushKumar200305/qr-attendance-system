@@ -1,0 +1,23 @@
+# Database — has student data, don't upload
+data/
+*.db
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated QR images
+static/qrcodes/*.png
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# VS Code
+.vscode/

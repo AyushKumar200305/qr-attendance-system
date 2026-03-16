@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Error{% endblock %}
+{% block content %}
+<div style="max-width:400px;margin:60px auto;text-align:center;">
+  <div style="font-size:4rem;margin-bottom:16px;">{{ icon }}</div>
+  <h1 style="color:var(--bad);margin-bottom:10px;">{{ title }}</h1>
+  <p style="color:var(--muted);margin-bottom:24px;">{{ msg }}</p>
+  <a href="{{ url_for('home') }}" class="btn btn-s">← Home</a>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{% if ok %}Attendance Marked{% else %}Already Done{% endif %}{% endblock %}
+{% block content %}
+<div style="max-width:420px;margin:0 auto;padding-top:20px;text-align:center;">
+
+  {% if ok %}
+  <div style="font-size:4.5rem;margin-bottom:14px;animation:pop .35s ease;">✅</div>
+  <h1 style="color:var(--ok);font-size:1.9rem;font-weight:900;margin-bottom:8px;">Marked!</h1>
+  <p style="color:var(--muted);font-size:.88rem;margin-bottom:22px;">Your attendance has been recorded.</p>
+  {% else %}
+  <div style="font-size:4.5rem;margin-bottom:14px;">⚠️</div>
+  <h1 style="color:var(--warn);font-size:1.9rem;font-weight:900;margin-bottom:8px;">Already Marked</h1>
+  <p style="color:var(--muted);font-size:.88rem;margin-bottom:22px;">{{ msg }}</p>
+  {% endif %}
+
+  <div class="card" style="text-align:left;border-color:{% if ok %}rgba(16,185,129,.3){% else %}rgba(245,158,11,.3){% endif %}">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--muted);font-size:.8rem;">Name</span>
+        <span style="font-weight:700;">{{ student.name }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--muted);font-size:.8rem;">Roll No</span>
+        <code style="font-family:var(--mono);color:var(--a2);font-size:.85rem;">{{ student.roll_no }}</code>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--muted);font-size:.8rem;">Subject</span>
+        <span class="b b-{{ subject }}">{{ subject_name }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--muted);font-size:.8rem;">Session</span>
+        <span style="font-size:.83rem;">{{ label }}</span>
+      </div>
+      {% if ok and risk_score > 0.3 %}
+      <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:1px solid var(--border);">
+        <span style="color:var(--muted);font-size:.8rem;">Status</span>
+        <span style="font-size:.78rem;color:var(--warn);">⚠ Flagged for review</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <a href="{{ url_for('student_stats', roll=student.roll_no) }}"
+     class="btn btn-s btn-bl" style="margin-top:4px;">
+    📊 View My Attendance %
+  </a>
+</div>
+<style>@keyframes pop{0%{transform:scale(.5);opacity:0}80%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}</style>
+{% endblock %}

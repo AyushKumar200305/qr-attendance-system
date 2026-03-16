@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Stats — {{ student.roll_no }}{% endblock %}
+{% block content %}
+<div class="pt">
+  <h1>📊 {{ student.name }}</h1>
+  <p><code style="font-family:var(--mono);color:var(--a2);">{{ student.roll_no }}</code> &nbsp;·&nbsp; {{ today }}</p>
+</div>
+
+<!-- SUBJECT CARDS -->
+<div class="g3" style="margin-bottom:20px;">
+{% for r in records %}
+<div class="card" style="border-color:{% if r.status=='safe' %}rgba(16,185,129,.3){% elif r.status=='warning' %}rgba(245,158,11,.3){% else %}rgba(239,68,68,.3){% endif %};">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <span class="b b-{{ r.code }}">{{ r.code }}</span>
+    <span style="font-size:1.4rem;font-weight:900;color:{% if r.status=='safe' %}var(--ok){% elif r.status=='warning' %}var(--warn){% else %}var(--bad){% endif %};">
+      {{ r.percentage }}%
+    </span>
+  </div>
+  <div style="font-size:.78rem;color:var(--muted);margin-bottom:6px;">{{ r.name }}</div>
+  <div class="pbar">
+    <div class="pbar-fill pbar-{% if r.status=='safe' %}ok{% elif r.status=='warning' %}warn{% else %}bad{% endif %}"
+         style="width:{{ [r.percentage, 100]|min }}%;"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-top:6px;">
+    <span style="font-size:.72rem;color:var(--muted);">{{ r.attended }}/{{ r.total }} classes</span>
+    <span class="b b-{{ r.status }}" style="font-size:.68rem;">{{ r.status|upper }}</span>
+  </div>
+
+  <!-- AI Risk Prediction -->
+  {% if risk_data and risk_data[r.code] %}
+  {% set rd = risk_data[r.code] %}
+  {% if rd.risk != 'safe' %}
+  <div style="margin-top:8px;padding:6px 8px;background:var(--surf2);border-radius:6px;font-size:.72rem;">
+    <span class="risk-dot risk-{{ rd.risk }}"></span>
+    {% if rd.classes_can_miss > 0 %}
+    Can miss <strong>{{ rd.classes_can_miss }}</strong> more class(es)
+    {% else %}
+    <span style="color:var(--bad);">Must attend every remaining class!</span>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+{% endfor %}
+</div>
+
+<!-- ATTENDANCE LOG -->
+<div class="card">
+  <div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:14px;">
+    📋 Attendance Log
+  </div>
+  {% if log %}
+  <table class="tbl">
+    <thead>
+      <tr><th>Subject</th><th>Session</th><th>Date & Time</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+    {% for l in log %}
+    <tr>
+      <td><span class="b b-{{ l.subject }}">{{ l.subject }}</span></td>
+      <td style="font-size:.82rem;">{{ l.label }}</td>
+      <td style="font-size:.78rem;color:var(--muted);">{{ l.marked_at[:16] }}</td>
+      <td>
+        {% if l.flagged %}
+        <span style="color:var(--warn);font-size:.75rem;">⚠ Flagged</span>
+        {% else %}
+        <span style="color:var(--ok);font-size:.75rem;">✔ Clean</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:20px;color:var(--muted);font-size:.85rem;">No attendance records yet.</div>
+  {% endif %}
+</div>
+
+<div style="text-align:center;margin-top:14px;">
+  <a href="{{ url_for('my_stats') }}" class="btn btn-s">← Look up another roll</a>
+</div>
+{% endblock %}

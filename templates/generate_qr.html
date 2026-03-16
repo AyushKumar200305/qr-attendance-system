@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Generate QR{% endblock %}
+{% block content %}
+<div class="day-banner">
+  <div class="pulse"></div>
+  <div style="font-weight:600;">{{ today }}</div>
+  <div style="margin-left:auto;font-size:.78rem;color:var(--muted);">
+    📶 Phone URL: <strong style="color:var(--a2);">http://{{ local_ip }}:5000</strong>
+  </div>
+</div>
+
+<div style="max-width:680px;margin:0 auto;margin-top:20px;">
+  <div class="pt">
+    <h1>🔲 Generate QR</h1>
+    <p>Students scan with phone → form opens → enter name + roll → done.</p>
+  </div>
+
+  <div class="fl fl-info">
+    📶 <strong>Same WiFi required</strong> — laptop and student phones must be on the same network.
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <form method="POST">
+      <div class="fg">
+        <label class="lbl">Subject</label>
+        {% for code,name in subjects.items() %}
+        <label class="subj-opt">
+          <input type="radio" name="subject" value="{{ code }}" required/>
+          <span class="b b-{{ code }}">{{ code }}</span>
+          <span style="font-weight:700;">{{ name }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="fg">
+        <label class="lbl">Session Label <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
+        <input name="label" placeholder="e.g. Week 5 Lecture, Lab 3"/>
+      </div>
+      <div class="fg">
+        <label class="lbl">Expiry</label>
+        <select name="expiry">
+          <option value="15">⏱ 15 minutes</option>
+          <option value="30" selected>⏱ 30 minutes</option>
+          <option value="60">⏱ 1 hour</option>
+          <option value="never">♾ Never</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-p btn-bl" style="font-size:.95rem;padding:13px;">
+        🔲 Generate QR Code
+      </button>
+    </form>
+  </div>
+
+  {% if qr_data %}
+  <div class="card" style="border-color:rgba(16,185,129,.4);text-align:center;">
+    <div style="margin-bottom:14px;">
+      <span class="b b-{{ qr_data.subject }}" style="font-size:.88rem;padding:4px 14px;">{{ qr_data.subject_name }}</span>
+      {% if qr_data.label and qr_data.label != qr_data.subject_name %}
+      <div style="font-size:.82rem;color:var(--muted);margin-top:5px;">{{ qr_data.label }}</div>
+      {% endif %}
+      <div style="font-size:.75rem;color:var(--muted);margin-top:3px;">{{ qr_data.expiry_label }}</div>
+    </div>
+
+    <div style="background:white;display:inline-block;padding:18px;border-radius:14px;
+         margin-bottom:16px;box-shadow:0 4px 24px rgba(0,0,0,.3);">
+      <img src="data:image/png;base64,{{ qr_data.b64 }}"
+           style="display:block;width:260px;height:260px;image-rendering:pixelated;" alt="QR"/>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:5px;">Students open:</div>
+      <div style="background:var(--surf2);border:2px solid var(--a2);border-radius:8px;
+           padding:10px 14px;font-family:var(--mono);font-size:.85rem;color:var(--a2);word-break:break-all;">
+        {{ qr_data.att_url }}
+      </div>
+    </div>
+
+    <div style="background:var(--surf2);border-radius:10px;padding:14px;
+         text-align:left;margin-bottom:16px;">
+      <div style="font-size:.78rem;font-weight:700;margin-bottom:8px;">📱 Student Steps:</div>
+      <div style="font-size:.82rem;color:var(--muted);line-height:2.1;">
+        1️⃣ Open phone camera<br/>
+        2️⃣ Scan this QR<br/>
+        3️⃣ Tap the link<br/>
+        4️⃣ Enter Name &amp; Roll No<br/>
+        5️⃣ Tap <strong style="color:var(--ok);">Submit</strong>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+      <button onclick="showFS()" class="btn btn-ok">🖥️ Fullscreen</button>
+      <a href="{{ url_for('session_detail', sess_id=qr_data.session_id) }}" class="btn btn-s">📋 Attendees</a>
+      <a href="{{ url_for('generate_qr') }}" class="btn btn-s">🔲 New QR</a>
+    </div>
+  </div>
+
+  <!-- FULLSCREEN OVERLAY -->
+  <div id="fs" onclick="hideFS()"
+       style="display:none;position:fixed;inset:0;background:#fff;z-index:9999;
+              flex-direction:column;align-items:center;justify-content:center;
+              cursor:pointer;padding:20px;">
+    <div style="color:#000;font-size:1.4rem;font-weight:900;margin-bottom:4px;">
+      {{ qr_data.subject_name }}{% if qr_data.label and qr_data.label != qr_data.subject_name %} — {{ qr_data.label }}{% endif %}
+    </div>
+    <div style="color:#666;font-size:.85rem;margin-bottom:16px;">{{ today }}</div>
+    <img src="data:image/png;base64,{{ qr_data.b64 }}"
+         style="width:min(72vw,72vh);height:min(72vw,72vh);image-rendering:pixelated;"/>
+    <div style="margin-top:14px;font-family:monospace;font-size:.95rem;color:#444;
+         background:#f0f0f0;padding:10px 20px;border-radius:8px;word-break:break-all;
+         max-width:500px;text-align:center;">
+      {{ qr_data.att_url }}
+    </div>
+    <div style="margin-top:10px;font-size:.82rem;color:#888;">
+      📱 Camera → Scan → Name + Roll → Submit
+    </div>
+    <div style="margin-top:6px;font-size:.72rem;color:#bbb;">Click anywhere or Esc to close</div>
+  </div>
+  <script>
+  function showFS(){document.getElementById('fs').style.display='flex';document.documentElement.requestFullscreen?.();}
+  function hideFS(){document.getElementById('fs').style.display='none';document.exitFullscreen?.();}
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')hideFS();});
+  </script>
+  {% endif %}
+</div>
+{% endblock %}

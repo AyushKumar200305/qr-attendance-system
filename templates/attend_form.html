@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Mark Attendance — {{ subject_name }}{% endblock %}
+{% block content %}
+<div style="max-width:440px;margin:0 auto;padding-top:10px;">
+  <div style="text-align:center;margin-bottom:28px;">
+    <div style="font-size:2.8rem;margin-bottom:10px;">✅</div>
+    <span class="b b-{{ subject }}" style="font-size:.9rem;padding:4px 14px;">{{ subject_name }}</span>
+    <h1 style="font-size:1.5rem;font-weight:800;margin-top:10px;">Mark Your Attendance</h1>
+    <p style="color:var(--muted);font-size:.82rem;margin-top:6px;">{{ label }} &nbsp;·&nbsp; {{ today }}</p>
+  </div>
+
+  <div class="card">
+    <form method="POST">
+      <div class="fg">
+        <label class="lbl">Full Name</label>
+        <input name="name" placeholder="e.g. Ali Raza" required autofocus style="font-size:.95rem;padding:12px;"/>
+      </div>
+      <div class="fg">
+        <label class="lbl">Roll Number</label>
+        <input name="roll_no" placeholder="e.g. 24BCS001" required
+               oninput="this.value=this.value.toUpperCase()"
+               style="font-size:.95rem;padding:12px;font-family:var(--mono);font-weight:700;letter-spacing:1px;"/>
+      </div>
+      <div class="fg">
+        <label class="lbl">Subject</label>
+        <div style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;
+             padding:11px 14px;display:flex;align-items:center;gap:10px;">
+          <span class="b b-{{ subject }}">{{ subject }}</span>
+          <span style="font-weight:600;font-size:.9rem;">{{ subject_name }}</span>
+          <span style="margin-left:auto;font-size:.72rem;color:var(--ok);">✔ From QR</span>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-ok btn-bl" style="font-size:.95rem;padding:14px;margin-top:4px;">
+        Submit Attendance →
+      </button>
+    </form>
+  </div>
+
+  <div class="fl fl-warn" style="font-size:.78rem;">
+    🔒 <strong>Anti-sharing active</strong> — this QR can only be used once per device per class.
+    Do not share the QR or this link with anyone outside the classroom.
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Session Detail{% endblock %}
+{% block content %}
+<div class="pt">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <h1>{{ sess.label }}</h1>
+    <span class="b b-{{ sess.subject }}">{{ subjects[sess.subject] }}</span>
+    {% if active %}<span style="color:var(--ok);font-size:.8rem;font-weight:700;">● Live</span>
+    {% else %}<span style="color:var(--muted);font-size:.8rem;">● Closed</span>{% endif %}
+  </div>
+  <p>Created {{ sess.created_at[:16] }}
+     {% if sess.expires_at %} · Expires {{ sess.expires_at[:16] }}{% endif %}</p>
+</div>
+
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+  <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-s">← Dashboard</a>
+  <a href="{{ url_for('export_csv', subject=sess.subject) }}" class="btn btn-s">⬇ Export CSV</a>
+  {% if active %}
+  <form method="POST" action="{{ url_for('deactivate_sess', sess_id=sess.id) }}" style="display:inline;">
+    <button class="btn btn-s" style="color:var(--warn);border-color:var(--warn);"
+            onclick="return confirm('Stop this QR?')">Stop QR</button>
+  </form>
+  {% endif %}
+  <form method="POST" action="{{ url_for('delete_sess', sess_id=sess.id) }}" style="display:inline;">
+    <button class="btn btn-s btn-bad" onclick="return confirm('Delete this session?')">Delete</button>
+  </form>
+</div>
+
+<div class="card">
+  <div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:14px;">
+    👥 {{ rows|length }} Student(s) Present
+  </div>
+  {% if rows %}
+  <table class="tbl">
+    <thead>
+      <tr><th>#</th><th>Roll No</th><th>Name</th><th>Time</th><th>IP</th><th>Risk</th></tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td style="color:var(--muted);font-size:.78rem;">{{ loop.index }}</td>
+      <td><code style="font-family:var(--mono);font-size:.82rem;color:var(--a2);">{{ r.roll_no }}</code></td>
+      <td style="font-size:.85rem;">{{ r.name }}</td>
+      <td style="font-size:.75rem;color:var(--muted);">{{ r.marked_at[11:16] }}</td>
+      <td style="font-size:.72rem;color:var(--muted);">{{ r.ip_address }}</td>
+      <td>
+        {% if r.flagged %}
+        <span style="color:var(--bad);font-size:.75rem;" title="{{ r.flag_reason }}">⚠ {{ "%.2f"|format(r.risk_score) }}</span>
+        {% else %}
+        <span style="color:var(--ok);font-size:.75rem;">✔ {{ "%.2f"|format(r.risk_score) }}</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:30px;color:var(--muted);font-size:.85rem;">No students yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

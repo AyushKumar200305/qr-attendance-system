@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Security Alerts{% endblock %}
+{% block content %}
+<div class="pt">
+  <h1>🚨 Security Alerts</h1>
+  <p>AI-detected suspicious activity — QR sharing, device reuse, anomalous patterns.</p>
+</div>
+
+{% if flagged %}
+<div class="card" style="border-color:rgba(239,68,68,.3);margin-bottom:20px;">
+  <div style="font-size:.82rem;font-weight:700;color:var(--bad);margin-bottom:14px;">
+    ⚠ Flagged Attendance Records ({{ flagged|length }})
+  </div>
+  <table class="tbl">
+    <thead>
+      <tr><th>Roll</th><th>Name</th><th>Subject</th><th>Session</th><th>Risk</th><th>Reason</th></tr>
+    </thead>
+    <tbody>
+    {% for f in flagged %}
+    <tr>
+      <td><code style="font-family:var(--mono);font-size:.8rem;color:var(--a2);">{{ f.roll_no }}</code></td>
+      <td style="font-size:.82rem;">{{ f.name }}</td>
+      <td><span class="b b-{{ f.subject }}">{{ f.subject }}</span></td>
+      <td style="font-size:.78rem;">{{ f.label }}</td>
+      <td style="color:var(--bad);font-weight:700;font-size:.82rem;">{{ "%.2f"|format(f.risk_score) }}</td>
+      <td style="font-size:.75rem;color:var(--muted);">{{ f.flag_reason }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="card">
+  <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:14px;">
+    📋 All Anomaly Log
+  </div>
+  {% if anomalies %}
+  <table class="tbl">
+    <thead>
+      <tr><th>Time</th><th>Type</th><th>Severity</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+    {% for a in anomalies %}
+    <tr>
+      <td style="font-size:.75rem;color:var(--muted);white-space:nowrap;">{{ a.detected_at[:16] }}</td>
+      <td style="font-size:.75rem;font-family:var(--mono);">{{ a.anomaly_type }}</td>
+      <td>
+        <span style="font-size:.72rem;padding:2px 6px;border-radius:4px;font-weight:700;
+              background:{% if a.severity=='HIGH' %}rgba(239,68,68,.2){% else %}rgba(245,158,11,.2){% endif %};
+              color:{% if a.severity=='HIGH' %}var(--bad){% else %}var(--warn){% endif %};">
+          {{ a.severity }}
+        </span>
+      </td>
+      <td style="font-size:.8rem;">{{ a.description }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:30px;color:var(--ok);font-size:.85rem;">
+    ✅ No anomalies detected. System is clean.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
