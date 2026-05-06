@@ -538,11 +538,13 @@ def send_weekly_reports():
             sent += 1
         else:
             failed += 1
+            last_err = err
+            print(f'[Email] Failed for {s["email"]}: {err}')
 
     if sent:
         flash(f'Weekly reports sent to {sent} student(s).', 'success')
     if failed:
-        flash(f'{failed} report(s) failed. Check SendGrid settings.', 'danger')
+        flash(f'{failed} report(s) failed — {last_err}', 'danger')
     if not students:
         flash('No students with email addresses found.', 'danger')
     return redirect(url_for('teacher_dashboard'))
