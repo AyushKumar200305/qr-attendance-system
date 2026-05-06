@@ -26,6 +26,7 @@ import secrets
 
 app = Flask(__name__)
 app.secret_key = 'qr-attend-industry-2024-xk9mP'
+init_db()
 QR_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'qrcodes')
 os.makedirs(QR_FOLDER, exist_ok=True)
 
