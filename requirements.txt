@@ -16,3 +16,13 @@ qrcode[pil]
 reportlab
 requests
 APScheduler
+anthropic
+APScheduler
+flask
+gunicorn
+matplotlib
+Pillow
+python-dotenv
+qrcode[pil]
+reportlab
+requests
