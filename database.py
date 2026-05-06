@@ -120,6 +120,13 @@ def init_db():
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL)""")
 
+    c.execute("""CREATE TABLE IF NOT EXISTS announcements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        priority TEXT DEFAULT 'normal',
+        created_at TEXT DEFAULT (datetime('now')))""")
+
     # Default schedule: Monday 08:00, enabled
     defaults = [
         ('email_schedule_enabled', '1'),
@@ -136,6 +143,27 @@ def init_db():
         c.execute("INSERT OR IGNORE INTO subjects (code, name) VALUES (?,?)", (code, name))
         c.execute("INSERT OR IGNORE INTO total_classes VALUES (?,0)", (code,))
 
+    conn.commit(); conn.close()
+
+
+# ── Announcements ─────────────────────────────────────────────────────────────
+def get_announcements():
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM announcements ORDER BY created_at DESC").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def add_announcement(title, body, priority='normal'):
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO announcements (title, body, priority) VALUES (?,?,?)",
+        (title.strip(), body.strip(), priority))
+    conn.commit(); conn.close()
+
+def delete_announcement(ann_id):
+    conn = get_conn()
+    conn.execute("DELETE FROM announcements WHERE id=?", (ann_id,))
     conn.commit(); conn.close()
 
 

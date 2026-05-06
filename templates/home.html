@@ -147,6 +147,27 @@
   </div>
 </div>
 
+<!-- ANNOUNCEMENTS -->
+{% if announcements %}
+<div style="margin-bottom:24px;">
+  <div style="font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">📢 Announcements</div>
+  {% for ann in announcements %}
+  {% set colors = {'urgent': ('rgba(239,68,68,.1)','rgba(239,68,68,.35)','var(--bad)','🚨'),
+                   'important': ('rgba(245,158,11,.1)','rgba(245,158,11,.35)','var(--warn)','⚠️'),
+                   'normal': ('rgba(99,102,241,.07)','rgba(99,102,241,.3)','var(--accent)','📢')} %}
+  {% set c = colors.get(ann.priority, colors.normal) %}
+  <div style="background:{{ c[0] }};border:1px solid {{ c[1] }};border-radius:12px;padding:16px 20px;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <span style="font-size:1.1rem;">{{ c[3] }}</span>
+      <span style="font-weight:700;color:{{ c[2] }};font-size:.95rem;">{{ ann.title }}</span>
+      <span style="margin-left:auto;font-size:.72rem;color:var(--muted);">{{ ann.created_at[:16] }}</span>
+    </div>
+    <p style="font-size:.86rem;color:var(--text);line-height:1.6;margin:0;">{{ ann.body }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 <!-- SUBJECTS ROW -->
 <div class="card" style="padding:24px;">
   <div style="font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;

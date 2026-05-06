@@ -24,7 +24,8 @@ from database import (
     log_anomaly, get_anomalies, get_flagged_attendance,
     get_all_subjects, add_subject, delete_subject,
     bulk_delete_students, get_advanced_analytics, delete_student,
-    get_setting, set_setting, get_email_schedule
+    get_setting, set_setting, get_email_schedule,
+    get_announcements, add_announcement, delete_announcement
 )
 from ml_engine import (
     calculate_risk_score, predict_detention_risk,
@@ -270,7 +271,48 @@ def _send_email(to_email, subject, html_body):
 # ── HOME ──────────────────────────────────────────────────────────────────────
 @app.route('/')
 def home():
-    return render_template('home.html', subjects=get_all_subjects(), today=now_str())
+    return render_template('home.html',
+        subjects=get_all_subjects(),
+        announcements=get_announcements(),
+        today=now_str())
+
+
+# ── PUBLIC STUDENT ATTENDANCE VIEW ────────────────────────────────────────────
+@app.route('/my-attendance/<roll>')
+def public_student_stats(roll):
+    student = get_student_by_roll(roll)
+    if not student:
+        return render_template('attend_error.html', today=now_str(),
+            icon='❌', title='Student Not Found',
+            msg=f'No record found for roll number {roll.upper()}.')
+    records, _ = get_student_stats(student['id'])
+    subjects   = get_all_subjects()
+    overall    = round(sum(r['percentage'] for r in records) / len(records), 1) if records else 0
+    return render_template('student_public_stats.html',
+        student=student, records=records,
+        subjects=subjects, overall=overall, today=now_str())
+
+
+# ── ANNOUNCEMENTS (teacher only) ──────────────────────────────────────────────
+@app.route('/teacher/announcements/add', methods=['POST'])
+@teacher_required
+def add_announcement_route():
+    title    = request.form.get('title', '').strip()
+    body     = request.form.get('body', '').strip()
+    priority = request.form.get('priority', 'normal')
+    if title and body:
+        add_announcement(title, body, priority)
+        flash('Announcement posted.', 'success')
+    else:
+        flash('Title and message are required.', 'danger')
+    return redirect(url_for('teacher_dashboard'))
+
+@app.route('/teacher/announcements/delete/<int:ann_id>', methods=['POST'])
+@teacher_required
+def delete_announcement_route(ann_id):
+    delete_announcement(ann_id)
+    flash('Announcement deleted.', 'success')
+    return redirect(url_for('teacher_dashboard'))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -753,7 +795,7 @@ def teacher_dashboard():
         teacher=get_teacher(), today=now_str(),
         insights=insights, heatmap=heatmap,
         anomalies=anomalies, has_smtp=has_smtp,
-        schedule=schedule,
+        schedule=schedule, announcements=get_announcements(),
         total_students=total_students,
         total_sessions=total_sessions,
         total_att=total_att)
