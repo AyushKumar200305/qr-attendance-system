@@ -14,3 +14,4 @@ Pillow
 python-dotenv
 qrcode[pil]
 reportlab
+requests
