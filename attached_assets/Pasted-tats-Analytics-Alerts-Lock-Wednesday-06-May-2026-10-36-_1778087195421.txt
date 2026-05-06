@@ -1,0 +1,46 @@
+tats
+📈 Analytics
+🚨 Alerts
+🔒 Lock
+Wednesday, 06 May 2026
+10:36:32 pm
+👋 ayush
+Dashboard
+Overview of attendance, insights, and alerts.
+
+🤖 AI Insights
+👥
+1 students registered across 0 sessions
+🔲 Generate QR
+👥 All Students
+📈 Analytics
+🚨 Security Alerts
+⬇ Export CSV
+📧 Send Weekly Reports
+🤖 AI Class Intelligence Report
+Generate Report
+**Class Attendance Report**
+
+### OVERALL HEALTH
+The overall health of the class attendance is **LOW**. With 1 student registered across 0 sessions, it indicates that there has been no attendance recorded for the class. This suggests a potential issue with the class schedule, session planning, or student engagement.
+
+### URGENT ATTENTION
+The following areas require **URGENT ATTENTION**:
+* **Zero sessions conducted**: The fact that no sessions have been conducted is a major concern. It is essential to investigate the reason behind this and take immediate action to resume classes.
+* **Single student registration**: With only one student registered, it is crucial to assess the effectiveness of the class promotion and recruitment strategies to attract more students.
+
+### TREND ANALYSIS
+Since there is no historical data available, a trend analysis cannot be performed. However, it is recommended to establish a baseline for attendance data to track progress and identify trends over time. Key metrics to monitor include:
+* Student registration numbers
+* Session attendance rates
+* Student engagement and participation
+
+### RECOMMENDED ACTIONS
+To improve the overall health of the class attendance, the following **RECOMMENDED ACTIONS** are suggested:
+1. **Conduct an emergency meeting**: Schedule a meeting with the instructor, students, and relevant stakeholders to discuss the current situation and develop a plan to resume classes.
+2. **Review and revise the class schedule**: Assess the class schedule and make necessary adjustments to ensure that sessions are conducted regularly.
+3. **Develop a student recruitment plan**: Create a plan to promote the class and attract more students, including targeted marketing campaigns, social media promotions, and outreach to potential students.
+4. **Establish a system for tracking attendance**: Implement a system to record and track student attendance, allowing for regular monitoring and analysis of attendance data.
+5. **Provide support to the instructor**: Offer training and resources to the instructor to help them effectively manage the class and promote student engagement.
+
+By taking these recommended actions, it is possible to improve the overall health of the class attendance and provide a better learning experience for students

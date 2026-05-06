@@ -94,6 +94,71 @@ def _ai_complete(client, messages, system=None, max_tokens=400):
     )
     return resp.choices[0].message.content
 
+def _send_class_start_emails(subject_name, label, att_url, expires_label, teacher_name):
+    """Send class-started notification to all students with email addresses."""
+    if not GMAIL_USER or not GMAIL_APP_PASS:
+        return 0, 0
+    conn = get_conn()
+    students = conn.execute(
+        "SELECT name, email FROM students WHERE email != '' AND email IS NOT NULL"
+    ).fetchall()
+    conn.close()
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;max-width:600px;">
+        <tr><td style="background:#6366f1;padding:28px 32px;text-align:center;">
+          <p style="margin:0;font-size:24px;font-weight:700;color:#ffffff;">📢 Class Started!</p>
+          <p style="margin:6px 0 0;font-size:14px;color:#c7d2fe;">{label}</p>
+        </td></tr>
+        <tr><td style="padding:28px 32px;">
+          <p style="margin:0 0 16px;font-size:15px;color:#111827;">
+            <strong>{teacher_name}</strong> has started a new session for <strong>{subject_name}</strong>.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:24px;">
+            <tr><td style="padding:14px 18px;border-bottom:1px solid #e5e7eb;">
+              <span style="font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600;">Subject</span><br>
+              <span style="font-size:15px;color:#111827;font-weight:700;">{subject_name}</span>
+            </td></tr>
+            <tr><td style="padding:14px 18px;border-bottom:1px solid #e5e7eb;">
+              <span style="font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600;">Session</span><br>
+              <span style="font-size:15px;color:#111827;font-weight:700;">{label}</span>
+            </td></tr>
+            <tr><td style="padding:14px 18px;">
+              <span style="font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600;">Expires</span><br>
+              <span style="font-size:15px;color:#ef4444;font-weight:700;">{expires_label}</span>
+            </td></tr>
+          </table>
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td align="center">
+              <a href="{att_url}" style="display:inline-block;background:#6366f1;color:#ffffff;
+                 text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;
+                 font-size:16px;">Mark My Attendance →</a>
+            </td></tr>
+          </table>
+          <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
+            Mark your attendance before the session expires.<br>
+            Sent by QR Attendance System.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+    sent = failed = 0
+    for s in students:
+        ok, _ = _send_email(s['email'], f"📢 Class Started: {subject_name} — {label}", html)
+        if ok: sent += 1
+        else:  failed += 1
+    return sent, failed
+
+
 def _build_report_html(student, records, week_start, week_end, overall_pct):
     """Build a Gmail-compatible HTML attendance report."""
     if overall_pct < 60:
@@ -666,12 +731,20 @@ def teacher_dashboard():
     subjects  = get_all_subjects()
     has_smtp  = bool(GMAIL_USER and GMAIL_APP_PASS)
     schedule  = get_email_schedule()
+    conn = get_conn()
+    total_students = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+    total_sessions = conn.execute("SELECT COUNT(*) FROM qr_sessions").fetchone()[0]
+    total_att      = conn.execute("SELECT COUNT(*) FROM attendance").fetchone()[0]
+    conn.close()
     return render_template('teacher_dashboard.html',
         sessions=sessions, subjects=subjects,
         teacher=get_teacher(), today=now_str(),
         insights=insights, heatmap=heatmap,
         anomalies=anomalies, has_smtp=has_smtp,
-        schedule=schedule)
+        schedule=schedule,
+        total_students=total_students,
+        total_sessions=total_sessions,
+        total_att=total_att)
 
 
 # ── GENERATE QR ───────────────────────────────────────────────────────────────
@@ -714,11 +787,23 @@ def generate_qr():
             allowed_ip_prefix=ip_lock,
             max_scans=max_scans, notes=notes)
 
-        att_url = f"http://{local_ip}:5000/attend/{token}"
+        dev_domain = os.environ.get('REPLIT_DEV_DOMAIN', '')
+        att_url = (f"https://{dev_domain}/attend/{token}" if dev_domain
+                   else f"http://{local_ip}:5000/attend/{token}")
         img = encode_qr(att_url)
         buf = io.BytesIO(); img.save(buf,'PNG'); buf.seek(0)
         b64 = base64.b64encode(buf.read()).decode()
         img.save(os.path.join(QR_FOLDER, f'{token}.png'))
+
+        # Send class-start notification emails in background thread
+        subject_name = subjects[subject]
+        teacher_name = session.get('teacher_name', 'Teacher')
+        import threading
+        threading.Thread(
+            target=_send_class_start_emails,
+            args=(subject_name, label or subject_name, att_url, expiry_label, teacher_name),
+            daemon=True
+        ).start()
 
         qr_data = dict(
             token=token, subject=subject,
