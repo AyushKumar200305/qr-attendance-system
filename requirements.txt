@@ -27,3 +27,4 @@ qrcode[pil]
 reportlab
 requests
 openai
+groq
