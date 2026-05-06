@@ -42,7 +42,7 @@ init_db()
 QR_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'qrcodes')
 os.makedirs(QR_FOLDER, exist_ok=True)
 
-XAI_API_KEY    = os.environ.get('XAI_API_KEY', '')
+GROQ_API_KEY   = os.environ.get('GROQ_API_KEY', '')
 GMAIL_USER     = os.environ.get('GMAIL_USER', '').strip()
 GMAIL_APP_PASS = os.environ.get('GMAIL_APP_PASS', '').replace(' ', '').strip()
 
@@ -73,22 +73,22 @@ def teacher_required(f):
     return wrap
 
 def _get_ai_client():
-    if not XAI_API_KEY:
+    if not GROQ_API_KEY:
         return None
     try:
-        from openai import OpenAI
-        return OpenAI(api_key=XAI_API_KEY, base_url='https://api.x.ai/v1')
+        from groq import Groq
+        return Groq(api_key=GROQ_API_KEY)
     except Exception:
         return None
 
 def _ai_complete(client, messages, system=None, max_tokens=400):
-    """Unified Grok chat completion. Returns text or raises."""
+    """Unified Groq chat completion. Returns text or raises."""
     msgs = []
     if system:
         msgs.append({'role': 'system', 'content': system})
     msgs.extend(messages)
     resp = client.chat.completions.create(
-        model='grok-3',
+        model='llama-3.3-70b-versatile',
         max_tokens=max_tokens,
         messages=msgs
     )
@@ -953,8 +953,8 @@ def session_count(sess_id):
 @app.route('/api/ai/student-chat', methods=['POST'])
 @teacher_required
 def ai_student_chat():
-    if not XAI_API_KEY:
-        return jsonify({'error': 'AI not configured. Please add XAI_API_KEY secret.'}), 503
+    if not GROQ_API_KEY:
+        return jsonify({'error': 'AI not configured. Please add GROQ_API_KEY secret.'}), 503
     data    = request.get_json() or {}
     roll    = data.get('roll', '')
     message = data.get('message', '')
@@ -991,8 +991,8 @@ def ai_student_chat():
 @app.route('/api/ai/teacher-report', methods=['POST'])
 @teacher_required
 def ai_teacher_report():
-    if not XAI_API_KEY:
-        return jsonify({'error': 'AI not configured. Please add XAI_API_KEY secret.'}), 503
+    if not GROQ_API_KEY:
+        return jsonify({'error': 'AI not configured. Please add GROQ_API_KEY secret.'}), 503
     insights   = get_class_insights()
     risk_list  = get_all_students_risk()
     critical   = [s for s in risk_list if s['worst_risk'] in ('critical','danger')]
@@ -1015,8 +1015,8 @@ def ai_teacher_report():
 @app.route('/api/ai/explain-anomaly', methods=['POST'])
 @teacher_required
 def ai_explain_anomaly():
-    if not XAI_API_KEY:
-        return jsonify({'error': 'AI not configured. Please add XAI_API_KEY secret.'}), 503
+    if not GROQ_API_KEY:
+        return jsonify({'error': 'AI not configured. Please add GROQ_API_KEY secret.'}), 503
     data  = request.get_json() or {}
     atype = data.get('type', '')
     desc  = data.get('description', '')
