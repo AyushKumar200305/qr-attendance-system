@@ -43,8 +43,8 @@ QR_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'qrcodes')
 os.makedirs(QR_FOLDER, exist_ok=True)
 
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
-GMAIL_USER        = os.environ.get('GMAIL_USER', '')
-GMAIL_APP_PASS    = os.environ.get('GMAIL_APP_PASS', '')
+GMAIL_USER        = os.environ.get('GMAIL_USER', '').strip()
+GMAIL_APP_PASS    = os.environ.get('GMAIL_APP_PASS', '').replace(' ', '').strip()
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def get_local_ip():
