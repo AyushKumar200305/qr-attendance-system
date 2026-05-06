@@ -72,6 +72,78 @@
   </div>
 </div>
 
+<!-- AUTO EMAIL SCHEDULE -->
+<div class="card" style="margin-bottom:20px;border-color:rgba(16,185,129,.25);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+    <div style="font-size:.82rem;font-weight:700;color:var(--ok);">📧 Auto Weekly Email Schedule</div>
+    {% if schedule.last_sent %}
+    <div style="font-size:.75rem;color:var(--muted);">Last sent: <strong style="color:var(--ok);">{{ schedule.last_sent }}</strong></div>
+    {% endif %}
+  </div>
+  <form method="POST" action="{{ url_for('save_email_schedule') }}">
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 14px;
+             background:var(--surf2);border:1px solid var(--border);border-radius:8px;">
+        <input type="checkbox" name="enabled" id="sched-enabled" style="width:auto;"
+               {% if schedule.enabled %}checked{% endif %}
+               onchange="toggleScheduleFields(this.checked)"/>
+        <span style="font-size:.85rem;font-weight:700;">Enable auto-send</span>
+      </label>
+      <div id="sched-fields" style="display:flex;gap:10px;flex-wrap:wrap;{% if not schedule.enabled %}opacity:.4;pointer-events:none;{% endif %}">
+        <div>
+          <div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;text-transform:uppercase;">Day</div>
+          <select name="day" style="width:auto;padding:8px 12px;font-size:.85rem;">
+            {% for i, d in [('0','Monday'),('1','Tuesday'),('2','Wednesday'),('3','Thursday'),('4','Friday'),('5','Saturday'),('6','Sunday')] %}
+            <option value="{{ i }}" {% if schedule.day == i|int %}selected{% endif %}>{{ d }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;text-transform:uppercase;">Hour</div>
+          <select name="hour" style="width:auto;padding:8px 12px;font-size:.85rem;">
+            {% for h in range(24) %}
+            <option value="{{ h }}" {% if schedule.hour == h %}selected{% endif %}>
+              {{ '%02d'|format(h) }}:00
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;text-transform:uppercase;">Minute</div>
+          <select name="minute" style="width:auto;padding:8px 12px;font-size:.85rem;">
+            {% for m in [0,15,30,45] %}
+            <option value="{{ m }}" {% if schedule.minute == m %}selected{% endif %}>:{{ '%02d'|format(m) }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-ok" style="padding:9px 20px;font-size:.85rem;flex-shrink:0;">
+        💾 Save Schedule
+      </button>
+    </div>
+    {% if schedule.enabled %}
+    <div style="margin-top:10px;font-size:.78rem;color:var(--muted);">
+      ⏰ Reports will auto-send every
+      <strong style="color:var(--ok);">
+        {{ ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][schedule.day] }}
+        at {{ '%02d'|format(schedule.hour) }}:{{ '%02d'|format(schedule.minute) }}
+      </strong>
+      to all students with email addresses.
+      {% if not has_smtp %}
+      <span style="color:var(--bad);"> · Mailgun not configured — add MAILGUN_API_KEY and MAILGUN_DOMAIN secrets first.</span>
+      {% endif %}
+    </div>
+    {% endif %}
+  </form>
+</div>
+<script>
+function toggleScheduleFields(on) {
+  const f = document.getElementById('sched-fields');
+  f.style.opacity         = on ? '1'    : '.4';
+  f.style.pointerEvents   = on ? 'auto' : 'none';
+}
+</script>
+
 <!-- SUBJECT MANAGEMENT -->
 <div class="card" style="margin-bottom:20px;">
   <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:14px;">📚 Subject Management</div>

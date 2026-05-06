@@ -23,7 +23,8 @@ from database import (
     log_scan, make_device_hash, device_already_scanned, get_conn,
     log_anomaly, get_anomalies, get_flagged_attendance,
     get_all_subjects, add_subject, delete_subject,
-    bulk_delete_students, get_advanced_analytics, delete_student
+    bulk_delete_students, get_advanced_analytics, delete_student,
+    get_setting, set_setting, get_email_schedule
 )
 from ml_engine import (
     calculate_risk_score, predict_detention_risk,
@@ -31,6 +32,9 @@ from ml_engine import (
 )
 from qr_generator import encode_qr
 import secrets as secrets_module
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+import atexit
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'qr-attend-industry-2024-xk9mP')
@@ -618,11 +622,13 @@ def teacher_dashboard():
     anomalies = get_anomalies(5)
     subjects  = get_all_subjects()
     has_smtp  = bool(MAILGUN_API_KEY and MAILGUN_DOMAIN)
+    schedule  = get_email_schedule()
     return render_template('teacher_dashboard.html',
         sessions=sessions, subjects=subjects,
         teacher=get_teacher(), today=now_str(),
         insights=insights, heatmap=heatmap,
-        anomalies=anomalies, has_smtp=has_smtp)
+        anomalies=anomalies, has_smtp=has_smtp,
+        schedule=schedule)
 
 
 # ── GENERATE QR ───────────────────────────────────────────────────────────────
@@ -1002,8 +1008,134 @@ def ai_explain_anomaly():
         return jsonify({'error': str(e)}), 500
 
 
+# ── EMAIL SCHEDULE SETTINGS ───────────────────────────────────────────────────
+@app.route('/teacher/email-schedule', methods=['POST'])
+@teacher_required
+def save_email_schedule():
+    enabled = '1' if request.form.get('enabled') else '0'
+    day     = request.form.get('day',    '0').strip()
+    hour    = request.form.get('hour',   '8').strip()
+    minute  = request.form.get('minute', '0').strip()
+    set_setting('email_schedule_enabled', enabled)
+    set_setting('email_schedule_day',     day)
+    set_setting('email_schedule_hour',    hour)
+    set_setting('email_schedule_minute',  minute)
+    _reschedule_email_job()
+    status = 'enabled' if enabled == '1' else 'disabled'
+    flash(f'Auto email schedule saved and {status}.', 'success')
+    return redirect(url_for('teacher_dashboard'))
+
+
+# ── SCHEDULER ─────────────────────────────────────────────────────────────────
+DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+
+def _auto_send_weekly_reports():
+    """Called by APScheduler — sends weekly reports to all students with emails."""
+    with app.app_context():
+        if not MAILGUN_API_KEY or not MAILGUN_DOMAIN:
+            print('[Scheduler] Mailgun not configured, skipping.')
+            return
+        conn = get_conn()
+        students = conn.execute(
+            "SELECT * FROM students WHERE email != '' AND email IS NOT NULL"
+        ).fetchall()
+        conn.close()
+
+        sent = failed = 0
+        for s in students:
+            s = dict(s)
+            records, _ = get_student_stats(s['id'])
+            if not records:
+                continue
+            overall_pct = round(sum(r['percentage'] for r in records) / len(records), 1)
+            week_start  = (datetime.now() - timedelta(days=7)).strftime('%d %b')
+            week_end    = datetime.now().strftime('%d %b %Y')
+
+            rows_html = ''
+            for r in records:
+                color = '#10b981' if r['status']=='safe' else '#f59e0b' if r['status']=='warning' else '#ef4444'
+                rows_html += f"""<tr>
+                  <td style="padding:10px;border-bottom:1px solid #2a2a3a;">{r['name']}</td>
+                  <td style="padding:10px;border-bottom:1px solid #2a2a3a;text-align:center;
+                             font-weight:bold;color:{color};">{r['percentage']}%</td>
+                  <td style="padding:10px;border-bottom:1px solid #2a2a3a;text-align:center;">
+                    {r['attended']}/{r['total']}</td>
+                  <td style="padding:10px;border-bottom:1px solid #2a2a3a;text-align:center;
+                             color:{color};font-weight:bold;">{r['status'].upper()}</td>
+                </tr>"""
+
+            if overall_pct < 60:
+                alert = f'<div style="background:#7f1d1d;border-radius:8px;padding:12px;margin-bottom:16px;color:#fca5a5;">⚠️ <strong>Critical:</strong> Your overall attendance is {overall_pct}%. Immediate improvement required.</div>'
+            elif overall_pct < 75:
+                alert = f'<div style="background:#78350f;border-radius:8px;padding:12px;margin-bottom:16px;color:#fde68a;">⚠️ <strong>Warning:</strong> Your overall attendance is {overall_pct}%. Below the 75% threshold.</div>'
+            else:
+                alert = f'<div style="background:#064e3b;border-radius:8px;padding:12px;margin-bottom:16px;color:#6ee7b7;">✅ Great job! Your overall attendance is {overall_pct}%.</div>'
+
+            html = f"""<!DOCTYPE html>
+            <html><body style="background:#0a0a0f;color:#e8e8f0;font-family:system-ui,sans-serif;margin:0;padding:20px;">
+              <div style="max-width:600px;margin:0 auto;background:#13131a;border-radius:12px;border:1px solid #2a2a3a;overflow:hidden;">
+                <div style="background:#6366f1;padding:24px;text-align:center;">
+                  <h1 style="margin:0;color:#fff;font-size:1.4rem;">📊 Weekly Attendance Report</h1>
+                  <p style="margin:6px 0 0;color:#c7d2fe;font-size:.9rem;">{week_start} – {week_end}</p>
+                </div>
+                <div style="padding:24px;">
+                  <p style="margin-top:0;">Hi <strong>{s['name']}</strong> ({s['roll_no']}),</p>
+                  {alert}
+                  <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+                    <thead><tr style="background:#1a1a24;">
+                      <th style="padding:10px;text-align:left;color:#6b7280;font-size:.8rem;">SUBJECT</th>
+                      <th style="padding:10px;text-align:center;color:#6b7280;font-size:.8rem;">%</th>
+                      <th style="padding:10px;text-align:center;color:#6b7280;font-size:.8rem;">CLASSES</th>
+                      <th style="padding:10px;text-align:center;color:#6b7280;font-size:.8rem;">STATUS</th>
+                    </tr></thead>
+                    <tbody>{rows_html}</tbody>
+                  </table>
+                  <p style="font-size:.8rem;color:#6b7280;margin-bottom:0;">This is an automated weekly report from your institution's attendance system.</p>
+                </div>
+              </div>
+            </body></html>"""
+
+            ok, _ = _send_email(
+                s['email'],
+                f"Weekly Attendance Report — {week_start} to {week_end}",
+                html)
+            if ok: sent += 1
+            else:  failed += 1
+
+        set_setting('email_last_sent', datetime.now().strftime('%d %b %Y %H:%M'))
+        print(f'[Scheduler] Weekly reports: {sent} sent, {failed} failed.')
+
+
+scheduler = BackgroundScheduler(daemon=True)
+
+def _reschedule_email_job():
+    """Remove the old job and re-add with current settings."""
+    if scheduler.get_job('weekly_email'):
+        scheduler.remove_job('weekly_email')
+    cfg = get_email_schedule()
+    if cfg['enabled']:
+        scheduler.add_job(
+            _auto_send_weekly_reports,
+            CronTrigger(day_of_week=cfg['day'], hour=cfg['hour'], minute=cfg['minute']),
+            id='weekly_email',
+            replace_existing=True,
+            misfire_grace_time=3600
+        )
+        print(f"[Scheduler] Weekly email scheduled: {DAY_NAMES[cfg['day']]} {cfg['hour']:02d}:{cfg['minute']:02d}")
+    else:
+        print('[Scheduler] Weekly email schedule disabled.')
+
+
+# Start scheduler once (guard against double-start in debug reloader)
+if not scheduler.running:
+    scheduler.start()
+    _reschedule_email_job()
+    atexit.register(lambda: scheduler.shutdown(wait=False))
+
+
 if __name__ == '__main__':
     ip = get_local_ip()
+    cfg = get_email_schedule()
     print("\n" + "="*55)
     print("  QR Attendance System — Industry Edition")
     print("="*55)
@@ -1012,5 +1144,7 @@ if __name__ == '__main__':
     t = get_teacher()
     if t: print(f"\n  Teacher: {t['name']}")
     else: print(f"\n  First run: visit /teacher to set PIN")
+    if cfg['enabled']:
+        print(f"  Auto-email: {DAY_NAMES[cfg['day']]}s at {cfg['hour']:02d}:{cfg['minute']:02d}")
     print("="*55 + "\n")
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)

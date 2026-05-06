@@ -116,12 +116,49 @@ def init_db():
         session_id INTEGER,
         resolved INTEGER DEFAULT 0)""")
 
+    c.execute("""CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL)""")
+
+    # Default schedule: Monday 08:00, enabled
+    defaults = [
+        ('email_schedule_enabled', '1'),
+        ('email_schedule_day',     '0'),
+        ('email_schedule_hour',    '8'),
+        ('email_schedule_minute',  '0'),
+        ('email_last_sent',        ''),
+    ]
+    for k, v in defaults:
+        c.execute("INSERT OR IGNORE INTO app_settings (key,value) VALUES (?,?)", (k, v))
+
     # Seed default subjects
     for code, name in SUBJECTS.items():
         c.execute("INSERT OR IGNORE INTO subjects (code, name) VALUES (?,?)", (code, name))
         c.execute("INSERT OR IGNORE INTO total_classes VALUES (?,0)", (code,))
 
     conn.commit(); conn.close()
+
+
+# ── App Settings ──────────────────────────────────────────────────────────────
+def get_setting(key, default=''):
+    conn = get_conn()
+    row  = conn.execute("SELECT value FROM app_settings WHERE key=?", (key,)).fetchone()
+    conn.close()
+    return row['value'] if row else default
+
+def set_setting(key, value):
+    conn = get_conn()
+    conn.execute("INSERT OR REPLACE INTO app_settings (key,value) VALUES (?,?)", (key, str(value)))
+    conn.commit(); conn.close()
+
+def get_email_schedule():
+    return {
+        'enabled': get_setting('email_schedule_enabled', '1') == '1',
+        'day':     int(get_setting('email_schedule_day',    '0')),
+        'hour':    int(get_setting('email_schedule_hour',   '8')),
+        'minute':  int(get_setting('email_schedule_minute', '0')),
+        'last_sent': get_setting('email_last_sent', ''),
+    }
 
 
 # ── Subject Management ────────────────────────────────────────────────────────
