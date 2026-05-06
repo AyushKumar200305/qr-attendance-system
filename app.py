@@ -304,7 +304,6 @@ def _send_email(to_email, subject, html_body):
 def home():
     return render_template('home.html',
         subjects=get_all_subjects(),
-        announcements=get_announcements(),
         today=now_str())
 
 
