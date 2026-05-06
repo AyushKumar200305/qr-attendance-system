@@ -43,9 +43,8 @@ QR_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'qrcodes')
 os.makedirs(QR_FOLDER, exist_ok=True)
 
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
-MAILGUN_API_KEY   = os.environ.get('MAILGUN_API_KEY', '')
-MAILGUN_DOMAIN    = os.environ.get('MAILGUN_DOMAIN', '')
-MAILGUN_FROM      = os.environ.get('MAILGUN_FROM', f'attendance@{os.environ.get("MAILGUN_DOMAIN", "")}')
+GMAIL_USER        = os.environ.get('GMAIL_USER', '')
+GMAIL_APP_PASS    = os.environ.get('GMAIL_APP_PASS', '')
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def get_local_ip():
@@ -83,24 +82,22 @@ def _get_ai_client():
         return None
 
 def _send_email(to_email, subject, html_body):
-    """Send an HTML email via Mailgun HTTP API. Returns (ok, error_msg)."""
-    if not MAILGUN_API_KEY or not MAILGUN_DOMAIN:
-        return False, 'Mailgun not configured. Set MAILGUN_API_KEY and MAILGUN_DOMAIN secrets.'
+    """Send an HTML email via Gmail SMTP. Returns (ok, error_msg)."""
+    if not GMAIL_USER or not GMAIL_APP_PASS:
+        return False, 'Gmail not configured. Set GMAIL_USER and GMAIL_APP_PASS secrets.'
     try:
-        resp = requests.post(
-            f'https://api.mailgun.net/v3/{MAILGUN_DOMAIN}/messages',
-            auth=('api', MAILGUN_API_KEY),
-            data={
-                'from':    MAILGUN_FROM,
-                'to':      to_email,
-                'subject': subject,
-                'html':    html_body,
-            },
-            timeout=15
-        )
-        if resp.status_code in (200, 202):
-            return True, ''
-        return False, f'Mailgun error {resp.status_code}: {resp.text}'
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = GMAIL_USER
+        msg['To']      = to_email
+        msg.attach(MIMEText(html_body, 'html'))
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(GMAIL_USER, GMAIL_APP_PASS)
+            server.sendmail(GMAIL_USER, to_email, msg.as_string())
+        return True, ''
     except Exception as e:
         return False, str(e)
 
@@ -456,8 +453,8 @@ def download_student_report(roll):
 @app.route('/teacher/send-weekly-reports', methods=['POST'])
 @teacher_required
 def send_weekly_reports():
-    if not MAILGUN_API_KEY or not MAILGUN_DOMAIN:
-        flash('Email not configured. Please set MAILGUN_API_KEY and MAILGUN_DOMAIN secrets.', 'danger')
+    if not GMAIL_USER or not GMAIL_APP_PASS:
+        flash('Email not configured. Please set GMAIL_USER and GMAIL_APP_PASS secrets.', 'danger')
         return redirect(url_for('teacher_dashboard'))
 
     conn = get_conn()
@@ -623,7 +620,7 @@ def teacher_dashboard():
     heatmap   = get_attendance_heatmap(14)
     anomalies = get_anomalies(5)
     subjects  = get_all_subjects()
-    has_smtp  = bool(MAILGUN_API_KEY and MAILGUN_DOMAIN)
+    has_smtp  = bool(GMAIL_USER and GMAIL_APP_PASS)
     schedule  = get_email_schedule()
     return render_template('teacher_dashboard.html',
         sessions=sessions, subjects=subjects,
@@ -1034,8 +1031,8 @@ DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sund
 def _auto_send_weekly_reports():
     """Called by APScheduler — sends weekly reports to all students with emails."""
     with app.app_context():
-        if not MAILGUN_API_KEY or not MAILGUN_DOMAIN:
-            print('[Scheduler] Mailgun not configured, skipping.')
+        if not GMAIL_USER or not GMAIL_APP_PASS:
+            print('[Scheduler] Gmail not configured, skipping.')
             return
         conn = get_conn()
         students = conn.execute(
