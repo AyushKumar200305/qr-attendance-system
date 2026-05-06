@@ -81,6 +81,95 @@ def _get_ai_client():
     except Exception:
         return None
 
+def _build_report_html(student, records, week_start, week_end, overall_pct):
+    """Build a Gmail-compatible HTML attendance report."""
+    if overall_pct < 60:
+        alert_bg, alert_border, alert_color, alert_icon, alert_msg = (
+            '#fef2f2', '#fca5a5', '#991b1b', '⚠️',
+            f'Critical: Overall attendance is {overall_pct}%. Immediate improvement required to avoid detention.')
+    elif overall_pct < 75:
+        alert_bg, alert_border, alert_color, alert_icon, alert_msg = (
+            '#fffbeb', '#fcd34d', '#92400e', '⚠️',
+            f'Warning: Overall attendance is {overall_pct}%. You are below the 75% threshold.')
+    else:
+        alert_bg, alert_border, alert_color, alert_icon, alert_msg = (
+            '#f0fdf4', '#86efac', '#166534', '✅',
+            f'Great job! Overall attendance is {overall_pct}%. Keep it up!')
+
+    rows_html = ''
+    for r in records:
+        if r['status'] == 'safe':
+            status_color, status_bg = '#166534', '#dcfce7'
+        elif r['status'] == 'warning':
+            status_color, status_bg = '#92400e', '#fef9c3'
+        else:
+            status_color, status_bg = '#991b1b', '#fee2e2'
+        rows_html += f"""
+        <tr>
+          <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">{r['name']}</td>
+          <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:700;color:#111827;font-size:14px;">{r['percentage']}%</td>
+          <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:14px;">{r['attended']}/{r['total']}</td>
+          <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;text-align:center;">
+            <span style="background:{status_bg};color:{status_color};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">{r['status'].upper()}</span>
+          </td>
+        </tr>"""
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;max-width:600px;">
+
+        <!-- Header -->
+        <tr><td style="background:#6366f1;padding:28px 32px;text-align:center;">
+          <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">📊 Weekly Attendance Report</p>
+          <p style="margin:6px 0 0;font-size:13px;color:#c7d2fe;">{week_start} – {week_end}</p>
+        </td></tr>
+
+        <!-- Greeting -->
+        <tr><td style="padding:28px 32px 0;">
+          <p style="margin:0;font-size:15px;color:#111827;">Hi <strong>{student['name']}</strong> ({student['roll_no']}),</p>
+          <p style="margin:8px 0 0;font-size:14px;color:#6b7280;">Here is your attendance summary for this week.</p>
+        </td></tr>
+
+        <!-- Alert -->
+        <tr><td style="padding:16px 32px 0;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="background:{alert_bg};border:1px solid {alert_border};border-radius:8px;padding:14px 16px;color:{alert_color};font-size:14px;">
+              {alert_icon} <strong>{alert_msg}</strong>
+            </td></tr>
+          </table>
+        </td></tr>
+
+        <!-- Subject Table -->
+        <tr><td style="padding:20px 32px 0;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+            <tr style="background:#f9fafb;">
+              <th style="padding:10px 16px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Subject</th>
+              <th style="padding:10px 16px;text-align:center;font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">%</th>
+              <th style="padding:10px 16px;text-align:center;font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Classes</th>
+              <th style="padding:10px 16px;text-align:center;font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Status</th>
+            </tr>
+            {rows_html}
+          </table>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="padding:24px 32px 28px;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">
+            This is an automated weekly report from your institution's QR Attendance System.
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
 def _send_email(to_email, subject, html_body):
     """Send an HTML email via Gmail SMTP. Returns (ok, error_msg)."""
     if not GMAIL_USER or not GMAIL_APP_PASS:
@@ -472,59 +561,7 @@ def send_weekly_reports():
         week_start  = (datetime.now() - timedelta(days=7)).strftime('%d %b')
         week_end    = datetime.now().strftime('%d %b %Y')
 
-        rows_html = ''
-        for r in records:
-            color = '#10b981' if r['status'] == 'safe' else '#f59e0b' if r['status'] == 'warning' else '#ef4444'
-            rows_html += f"""
-            <tr>
-              <td style="padding:10px;border-bottom:1px solid #2a2a3a;">{r['name']}</td>
-              <td style="padding:10px;border-bottom:1px solid #2a2a3a;text-align:center;
-                         font-weight:bold;color:{color};">{r['percentage']}%</td>
-              <td style="padding:10px;border-bottom:1px solid #2a2a3a;text-align:center;">
-                {r['attended']}/{r['total']}</td>
-              <td style="padding:10px;border-bottom:1px solid #2a2a3a;text-align:center;
-                         color:{color};font-weight:bold;">{r['status'].upper()}</td>
-            </tr>"""
-
-        alert = ''
-        if overall_pct < 60:
-            alert = f'<div style="background:#7f1d1d;border-radius:8px;padding:12px;margin-bottom:16px;color:#fca5a5;">⚠️ <strong>Critical:</strong> Your overall attendance is {overall_pct}%. Immediate improvement required to avoid detention.</div>'
-        elif overall_pct < 75:
-            alert = f'<div style="background:#78350f;border-radius:8px;padding:12px;margin-bottom:16px;color:#fde68a;">⚠️ <strong>Warning:</strong> Your overall attendance is {overall_pct}%. You are below the 75% threshold.</div>'
-        else:
-            alert = f'<div style="background:#064e3b;border-radius:8px;padding:12px;margin-bottom:16px;color:#6ee7b7;">✅ Great job! Your overall attendance is {overall_pct}%. Keep it up!</div>'
-
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="background:#0a0a0f;color:#e8e8f0;font-family:system-ui,sans-serif;margin:0;padding:20px;">
-          <div style="max-width:600px;margin:0 auto;background:#13131a;border-radius:12px;
-                      border:1px solid #2a2a3a;overflow:hidden;">
-            <div style="background:#6366f1;padding:24px;text-align:center;">
-              <h1 style="margin:0;color:#fff;font-size:1.4rem;">📊 Weekly Attendance Report</h1>
-              <p style="margin:6px 0 0;color:#c7d2fe;font-size:.9rem;">{week_start} – {week_end}</p>
-            </div>
-            <div style="padding:24px;">
-              <p style="margin-top:0;">Hi <strong>{s['name']}</strong> ({s['roll_no']}),</p>
-              {alert}
-              <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
-                <thead>
-                  <tr style="background:#1a1a24;">
-                    <th style="padding:10px;text-align:left;color:#6b7280;font-size:.8rem;">SUBJECT</th>
-                    <th style="padding:10px;text-align:center;color:#6b7280;font-size:.8rem;">%</th>
-                    <th style="padding:10px;text-align:center;color:#6b7280;font-size:.8rem;">CLASSES</th>
-                    <th style="padding:10px;text-align:center;color:#6b7280;font-size:.8rem;">STATUS</th>
-                  </tr>
-                </thead>
-                <tbody>{rows_html}</tbody>
-              </table>
-              <p style="font-size:.8rem;color:#6b7280;margin-bottom:0;">
-                This is an automated weekly report from your institution's attendance system.
-              </p>
-            </div>
-          </div>
-        </body>
-        </html>"""
+        html = _build_report_html(s, records, week_start, week_end, overall_pct)
 
         ok, err = _send_email(s['email'],
                               f"Weekly Attendance Report — {week_start} to {week_end}",
@@ -1050,49 +1087,7 @@ def _auto_send_weekly_reports():
             week_start  = (datetime.now() - timedelta(days=7)).strftime('%d %b')
             week_end    = datetime.now().strftime('%d %b %Y')
 
-            rows_html = ''
-            for r in records:
-                color = '#10b981' if r['status']=='safe' else '#f59e0b' if r['status']=='warning' else '#ef4444'
-                rows_html += f"""<tr>
-                  <td style="padding:10px;border-bottom:1px solid #2a2a3a;">{r['name']}</td>
-                  <td style="padding:10px;border-bottom:1px solid #2a2a3a;text-align:center;
-                             font-weight:bold;color:{color};">{r['percentage']}%</td>
-                  <td style="padding:10px;border-bottom:1px solid #2a2a3a;text-align:center;">
-                    {r['attended']}/{r['total']}</td>
-                  <td style="padding:10px;border-bottom:1px solid #2a2a3a;text-align:center;
-                             color:{color};font-weight:bold;">{r['status'].upper()}</td>
-                </tr>"""
-
-            if overall_pct < 60:
-                alert = f'<div style="background:#7f1d1d;border-radius:8px;padding:12px;margin-bottom:16px;color:#fca5a5;">⚠️ <strong>Critical:</strong> Your overall attendance is {overall_pct}%. Immediate improvement required.</div>'
-            elif overall_pct < 75:
-                alert = f'<div style="background:#78350f;border-radius:8px;padding:12px;margin-bottom:16px;color:#fde68a;">⚠️ <strong>Warning:</strong> Your overall attendance is {overall_pct}%. Below the 75% threshold.</div>'
-            else:
-                alert = f'<div style="background:#064e3b;border-radius:8px;padding:12px;margin-bottom:16px;color:#6ee7b7;">✅ Great job! Your overall attendance is {overall_pct}%.</div>'
-
-            html = f"""<!DOCTYPE html>
-            <html><body style="background:#0a0a0f;color:#e8e8f0;font-family:system-ui,sans-serif;margin:0;padding:20px;">
-              <div style="max-width:600px;margin:0 auto;background:#13131a;border-radius:12px;border:1px solid #2a2a3a;overflow:hidden;">
-                <div style="background:#6366f1;padding:24px;text-align:center;">
-                  <h1 style="margin:0;color:#fff;font-size:1.4rem;">📊 Weekly Attendance Report</h1>
-                  <p style="margin:6px 0 0;color:#c7d2fe;font-size:.9rem;">{week_start} – {week_end}</p>
-                </div>
-                <div style="padding:24px;">
-                  <p style="margin-top:0;">Hi <strong>{s['name']}</strong> ({s['roll_no']}),</p>
-                  {alert}
-                  <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
-                    <thead><tr style="background:#1a1a24;">
-                      <th style="padding:10px;text-align:left;color:#6b7280;font-size:.8rem;">SUBJECT</th>
-                      <th style="padding:10px;text-align:center;color:#6b7280;font-size:.8rem;">%</th>
-                      <th style="padding:10px;text-align:center;color:#6b7280;font-size:.8rem;">CLASSES</th>
-                      <th style="padding:10px;text-align:center;color:#6b7280;font-size:.8rem;">STATUS</th>
-                    </tr></thead>
-                    <tbody>{rows_html}</tbody>
-                  </table>
-                  <p style="font-size:.8rem;color:#6b7280;margin-bottom:0;">This is an automated weekly report from your institution's attendance system.</p>
-                </div>
-              </div>
-            </body></html>"""
+            html = _build_report_html(s, records, week_start, week_end, overall_pct)
 
             ok, _ = _send_email(
                 s['email'],
