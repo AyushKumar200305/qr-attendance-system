@@ -354,13 +354,27 @@ def attend(token):
                 icon='🚫', title='Already Marked',
                 msg=f'Roll number {roll} has already been marked present in this session from another device.')
 
+        # Only allow pre-registered students (roll number AND name must exist in DB)
+        student = get_student_by_roll(roll)
+        if not student:
+            log_scan(sess_row['id'], dev_hash, ip, roll, True, 'Roll number not registered')
+            return render_template('attend_error.html', today=now_str(),
+                icon='🚫', title='Not Registered',
+                msg=f'Roll number {roll} is not registered in the system. '
+                    f'Please contact your teacher to get added before marking attendance.')
+
+        if student['name'].strip().lower() != name.strip().lower():
+            log_scan(sess_row['id'], dev_hash, ip, roll, True, 'Name mismatch')
+            log_anomaly('NAME_MISMATCH', 'MEDIUM',
+                f"{roll} entered name '{name}' but registered name is '{student['name']}'",
+                student_id=student['id'], session_id=sess_row['id'])
+            return render_template('attend_error.html', today=now_str(),
+                icon='⚠️', title='Name Does Not Match',
+                msg=f'The name you entered does not match the registered name for roll number {roll}. '
+                    f'Please enter your name exactly as registered, or contact your teacher.')
+
         risk_score, risk_reason = calculate_risk_score(
             sess_row['id'], dev_hash, ip, roll)
-
-        student, is_new = get_or_create_student(roll, name)
-        if not is_new and name and student['name'] != name:
-            update_student_name(roll, name)
-            student['name'] = name
 
         ok, msg = mark_attendance(
             student['id'], sess_row['id'], subject,
