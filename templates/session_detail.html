@@ -9,7 +9,9 @@
     {% else %}<span style="color:var(--muted);font-size:.8rem;">● Closed</span>{% endif %}
   </div>
   <p>Created {{ sess.created_at[:16] }}
-     {% if sess.expires_at %} · Expires {{ sess.expires_at[:16] }}{% endif %}</p>
+     {% if sess.expires_at %} · Expires {{ sess.expires_at[:16] }}{% endif %}
+     {% if sess.notes %} · <em style="color:var(--muted);">{{ sess.notes }}</em>{% endif %}
+  </p>
 </div>
 
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
@@ -22,18 +24,18 @@
   </form>
   {% endif %}
   <form method="POST" action="{{ url_for('delete_sess', sess_id=sess.id) }}" style="display:inline;">
-    <button class="btn btn-s btn-bad" onclick="return confirm('Delete this session?')">Delete</button>
+    <button class="btn btn-s btn-bad" onclick="return confirm('Delete this session and all its attendance records?')">Delete</button>
   </form>
 </div>
 
-<div class="card">
+<div class="card" style="margin-bottom:18px;">
   <div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:14px;">
     👥 {{ rows|length }} Student(s) Present
   </div>
   {% if rows %}
   <table class="tbl">
     <thead>
-      <tr><th>#</th><th>Roll No</th><th>Name</th><th>Time</th><th>IP</th><th>Risk</th></tr>
+      <tr><th>#</th><th>Roll No</th><th>Name</th><th>Time</th><th>IP</th><th>Risk</th><th>Action</th></tr>
     </thead>
     <tbody>
     {% for r in rows %}
@@ -50,6 +52,15 @@
         <span style="color:var(--ok);font-size:.75rem;">✔ {{ "%.2f"|format(r.risk_score) }}</span>
         {% endif %}
       </td>
+      <td>
+        <form method="POST" action="{{ url_for('remove_attendance_route') }}" style="display:inline;">
+          <input type="hidden" name="student_id" value="{{ r.student_id }}"/>
+          <input type="hidden" name="session_id" value="{{ sess.id }}"/>
+          <input type="hidden" name="sess_id"    value="{{ sess.id }}"/>
+          <button type="submit" class="btn btn-s btn-bad"
+                  onclick="return confirm('Remove attendance for {{ r.name }}?')">✕ Remove</button>
+        </form>
+      </td>
     </tr>
     {% endfor %}
     </tbody>
@@ -57,5 +68,20 @@
   {% else %}
   <div style="text-align:center;padding:30px;color:var(--muted);font-size:.85rem;">No students yet.</div>
   {% endif %}
+</div>
+
+<!-- ADD STUDENT MANUALLY -->
+<div class="card" style="border-color:rgba(16,185,129,.3);">
+  <div style="font-size:.82rem;font-weight:700;color:var(--ok);margin-bottom:12px;">➕ Add Student Manually</div>
+  <form method="POST" action="{{ url_for('add_manual_route') }}">
+    <input type="hidden" name="session_id" value="{{ sess.id }}"/>
+    <input type="hidden" name="sess_id"    value="{{ sess.id }}"/>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <input name="roll_no" placeholder="Roll No e.g. 24BCS001"
+             style="flex:1;min-width:160px;" oninput="this.value=this.value.toUpperCase()"/>
+      <button type="submit" class="btn btn-ok">Add Attendance</button>
+    </div>
+    <div style="font-size:.75rem;color:var(--muted);margin-top:6px;">Student must already exist in the system.</div>
+  </form>
 </div>
 {% endblock %}

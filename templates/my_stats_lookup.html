@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% block title %}My Stats{% endblock %}
+{% block title %}Student Stats{% endblock %}
 {% block content %}
-<div style="max-width:380px;margin:0 auto;padding-top:20px;">
-  <div class="pt">
-    <h1>📊 My Attendance</h1>
-    <p>Enter your roll number to check your attendance percentage.</p>
+<div style="max-width:440px;margin:40px auto;">
+  <div class="pt" style="text-align:center;">
+    <div style="font-size:2.5rem;margin-bottom:10px;">📊</div>
+    <h1>Student Stats</h1>
+    <p>Enter a roll number to view attendance and detention risk.</p>
   </div>
   <div class="card">
     <form method="POST">

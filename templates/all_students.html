@@ -9,11 +9,11 @@
 <!-- EXPORT -->
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
   {% for code,name in subjects.items() %}
-  <a href="{{ url_for('export_csv', subject=code) }}" class="btn btn-s">
-    ⬇ {{ code }} CSV
-  </a>
+  <a href="{{ url_for('export_csv', subject=code) }}" class="btn btn-s">⬇ {{ code }} CSV</a>
   {% endfor %}
   <a href="{{ url_for('export_csv', subject='all') }}" class="btn btn-s btn-p">⬇ All CSV</a>
+  <button id="bulk-export-btn" onclick="bulkExport()" class="btn btn-s" style="display:none;color:var(--a2);border-color:var(--a2);">⬇ Export Selected</button>
+  <button id="bulk-delete-btn" onclick="bulkDelete()" class="btn btn-s btn-bad" style="display:none;">🗑 Delete Selected</button>
 </div>
 
 <!-- ADD STUDENT -->
@@ -22,32 +22,53 @@
   <form method="POST" action="{{ url_for('add_student') }}">
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <input name="roll_no" placeholder="Roll No e.g. 24BCS001"
-             style="flex:1;min-width:140px;"
-             oninput="this.value=this.value.toUpperCase()"/>
-      <input name="name" placeholder="Full Name" style="flex:2;min-width:160px;"/>
+             style="flex:1;min-width:120px;" oninput="this.value=this.value.toUpperCase()"/>
+      <input name="name" placeholder="Full Name" style="flex:2;min-width:140px;"/>
+      <input name="email" type="email" placeholder="Email (for reports)" style="flex:2;min-width:160px;"/>
       <button type="submit" class="btn btn-p" style="flex-shrink:0;">Add</button>
     </div>
   </form>
 </div>
 
+<!-- SEARCH & FILTER -->
+<div class="card" style="margin-bottom:16px;padding:16px 20px;">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+    <input id="search-box" type="text" placeholder="🔍 Search by name or roll no..."
+           style="flex:1;min-width:200px;" oninput="filterTable()"/>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;" id="filter-btns">
+      <button class="filter-btn active-filter" onclick="setFilter('all',this)">All</button>
+      <button class="filter-btn" onclick="setFilter('critical',this)" style="color:#ff6b6b;border-color:rgba(239,68,68,.4);">Critical</button>
+      <button class="filter-btn" onclick="setFilter('danger',this)" style="color:var(--bad);border-color:rgba(239,68,68,.3);">Danger</button>
+      <button class="filter-btn" onclick="setFilter('warn',this)" style="color:var(--warn);border-color:rgba(245,158,11,.3);">Warning</button>
+      <button class="filter-btn" onclick="setFilter('safe',this)" style="color:var(--ok);border-color:rgba(16,185,129,.3);">Safe</button>
+    </div>
+    <span id="count-label" style="font-size:.78rem;color:var(--muted);white-space:nowrap;"></span>
+  </div>
+</div>
+
 <!-- STUDENT TABLE -->
 <div class="card">
   {% if data %}
-  <table class="tbl">
+  <table class="tbl" id="student-table">
     <thead>
       <tr>
-        <th>Roll No</th><th>Name</th>
-        {% for code in subjects %}<th>{{ code }} %</th>{% endfor %}
+        <th><input type="checkbox" id="select-all" onchange="toggleAll(this)" style="width:auto;"/></th>
+        <th>Roll No</th><th>Name</th><th>Email</th>
+        {% for code,name in subjects.items() %}<th>{{ code }} %</th>{% endfor %}
         <th>Risk</th>
-        <th>Action</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody>
     {% for d in data %}
     {% set s = d.student %}
-    <tr>
+    {% set risk_level = 'safe' %}
+    {% for r in risk_list %}{% if r.roll_no == s.roll_no %}{% set risk_level = r.worst_risk %}{% endif %}{% endfor %}
+    <tr data-roll="{{ s.roll_no|lower }}" data-name="{{ s.name|lower }}" data-risk="{{ risk_level }}">
+      <td><input type="checkbox" class="row-check" data-id="{{ s.id }}" style="width:auto;" onchange="updateBulkBar()"/></td>
       <td><code style="font-family:var(--mono);font-size:.82rem;color:var(--a2);">{{ s.roll_no }}</code></td>
       <td style="font-size:.85rem;">{{ s.name }}</td>
+      <td style="font-size:.78rem;color:var(--muted);">{{ s.email or '—' }}</td>
       {% for sm in d.summary %}
       <td>
         <div style="font-weight:700;font-size:.85rem;color:{% if sm.status=='safe' %}var(--ok){% elif sm.status=='warn' %}var(--warn){% else %}var(--bad){% endif %};">
@@ -65,12 +86,12 @@
         <span class="b b-{{ r.worst_risk }}" style="font-size:.68rem;">{{ r.worst_risk|upper }}</span>
         {% endif %}{% endfor %}
       </td>
-      <td>
-        <form method="POST" action="{{ url_for('delete_student', student_id=s.id) }}">
+      <td style="display:flex;gap:5px;flex-wrap:wrap;">
+        <a href="{{ url_for('student_stats', roll=s.roll_no) }}" class="btn btn-s">📊</a>
+        <a href="{{ url_for('download_student_report', roll=s.roll_no) }}" class="btn btn-s" style="color:var(--a2);border-color:rgba(6,182,212,.3);" title="Download PDF Report">📄</a>
+        <form method="POST" action="{{ url_for('delete_student_route', student_id=s.id) }}">
           <button type="submit" class="btn btn-s btn-bad"
-                  onclick="return confirm('Delete {{ s.name }} ({{ s.roll_no }})? All their attendance records will also be deleted.')">
-            🗑 Delete
-          </button>
+                  onclick="return confirm('Delete {{ s.name }}? All attendance records will also be deleted.')">🗑</button>
         </form>
       </td>
     </tr>
@@ -81,4 +102,89 @@
   <div style="text-align:center;padding:30px;color:var(--muted);">No students yet.</div>
   {% endif %}
 </div>
+
+<style>
+.filter-btn{padding:6px 14px;border-radius:6px;font-size:.78rem;font-weight:700;
+  cursor:pointer;border:1px solid var(--border);background:var(--surf2);color:var(--muted);transition:all .15s;}
+.filter-btn:hover{border-color:var(--accent);color:var(--text);}
+.active-filter{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important;}
+</style>
+<script>
+let activeFilter = 'all';
+
+function filterTable() {
+  const q      = document.getElementById('search-box').value.toLowerCase();
+  const rows   = document.querySelectorAll('#student-table tbody tr');
+  let visible  = 0;
+  rows.forEach(r => {
+    const roll  = r.dataset.roll  || '';
+    const name  = r.dataset.name  || '';
+    const risk  = r.dataset.risk  || '';
+    const matchQ = !q || roll.includes(q) || name.includes(q);
+    const matchF = activeFilter === 'all' || risk === activeFilter ||
+                   (activeFilter === 'warn' && risk === 'warning');
+    r.style.display = (matchQ && matchF) ? '' : 'none';
+    if (matchQ && matchF) visible++;
+  });
+  const total = rows.length;
+  document.getElementById('count-label').textContent = `Showing ${visible} of ${total} students`;
+}
+
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-filter'));
+  btn.classList.add('active-filter');
+  filterTable();
+}
+
+function toggleAll(cb) {
+  document.querySelectorAll('.row-check').forEach(c => { c.checked = cb.checked; });
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const checked = document.querySelectorAll('.row-check:checked').length;
+  document.getElementById('bulk-export-btn').style.display = checked ? '' : 'none';
+  document.getElementById('bulk-delete-btn').style.display = checked ? '' : 'none';
+  document.getElementById('select-all').indeterminate =
+    checked > 0 && checked < document.querySelectorAll('.row-check').length;
+}
+
+function getSelectedIds() {
+  return Array.from(document.querySelectorAll('.row-check:checked')).map(c => c.dataset.id);
+}
+
+function bulkExport() {
+  const ids = getSelectedIds();
+  if (!ids.length) return;
+  fetch('/teacher/students/bulk-export', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ids})
+  }).then(r => r.blob()).then(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'selected_students.csv';
+    a.click();
+  });
+}
+
+function bulkDelete() {
+  const ids = getSelectedIds();
+  if (!ids.length) return;
+  if (!confirm(`Delete ${ids.length} selected student(s)? This cannot be undone.`)) return;
+  fetch('/teacher/students/bulk-delete', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ids})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) location.reload();
+    else alert('Error: ' + d.error);
+  });
+}
+
+// Init count
+window.addEventListener('DOMContentLoaded', () => {
+  const rows = document.querySelectorAll('#student-table tbody tr');
+  document.getElementById('count-label').textContent = `Showing ${rows.length} of ${rows.length} students`;
+});
+</script>
 {% endblock %}

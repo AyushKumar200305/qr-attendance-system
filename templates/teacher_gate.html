@@ -4,9 +4,35 @@
 <div style="max-width:400px;margin:40px auto;">
   <div class="pt" style="text-align:center;">
     <div style="font-size:2.5rem;margin-bottom:10px;">👩‍🏫</div>
-    <h1>{% if first_time %}Teacher Setup{% else %}Teacher Login{% endif %}</h1>
-    <p>{% if first_time %}Set up your name and PIN once. Remembered forever.{% else %}Enter your PIN to continue.{% endif %}</p>
+    <h1>{% if first_time %}Teacher Setup{% elif locked %}Account Locked{% else %}Teacher Login{% endif %}</h1>
+    <p>
+      {% if first_time %}Set up your name and PIN once. Remembered forever.
+      {% elif locked %}Too many failed attempts. Please wait.
+      {% else %}Enter your PIN to continue.
+      {% endif %}
+    </p>
   </div>
+
+  {% if locked %}
+  <div class="card" style="border-color:rgba(239,68,68,.4);text-align:center;padding:32px;">
+    <div style="font-size:3rem;margin-bottom:12px;">🔒</div>
+    <div style="color:var(--bad);font-weight:700;font-size:1.1rem;margin-bottom:8px;">Login Temporarily Locked</div>
+    <div style="color:var(--muted);font-size:.9rem;margin-bottom:16px;">Too many wrong PIN attempts.</div>
+    <div id="countdown" style="font-size:2rem;font-weight:900;color:var(--warn);font-family:var(--mono);">
+      {{ lock_remaining }}s
+    </div>
+    <div style="color:var(--muted);font-size:.78rem;margin-top:8px;">seconds remaining</div>
+  </div>
+  <script>
+  let secs = {{ lock_remaining }};
+  const el = document.getElementById('countdown');
+  const timer = setInterval(() => {
+    secs--;
+    if (secs <= 0) { clearInterval(timer); location.reload(); }
+    else { el.textContent = secs + 's'; }
+  }, 1000);
+  </script>
+  {% else %}
   <div class="card">
     <form method="POST">
       {% if first_time %}
@@ -30,5 +56,6 @@
       </button>
     </form>
   </div>
+  {% endif %}
 </div>
 {% endblock %}

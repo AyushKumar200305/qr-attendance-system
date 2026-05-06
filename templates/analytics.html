@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+{% block content %}
+<div class="pt">
+  <h1>📈 Advanced Analytics</h1>
+  <p>30-day trends, absence patterns, and class statistics.</p>
+</div>
+
+<!-- STAT CARDS -->
+<div class="g3" style="margin-bottom:24px;">
+  <div class="card" style="text-align:center;padding:20px;">
+    <div style="font-size:2rem;font-weight:900;color:var(--accent);">{{ data.total_students }}</div>
+    <div style="font-size:.78rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.5px;">Total Students</div>
+  </div>
+  <div class="card" style="text-align:center;padding:20px;">
+    <div style="font-size:2rem;font-weight:900;color:var(--a2);">{{ data.total_sessions }}</div>
+    <div style="font-size:.78rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.5px;">Total Sessions</div>
+  </div>
+  <div class="card" style="text-align:center;padding:20px;">
+    <div style="font-size:2rem;font-weight:900;color:var(--ok);">{{ data.total_att }}</div>
+    <div style="font-size:.78rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.5px;">Total Attendance Marks</div>
+  </div>
+  <div class="card" style="text-align:center;padding:20px;">
+    <div style="font-size:2rem;font-weight:900;color:var(--warn);">{{ data.avg_session }}</div>
+    <div style="font-size:.78rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.5px;">Avg Session Size</div>
+  </div>
+  <div class="card" style="text-align:center;padding:20px;">
+    <div style="font-size:2rem;font-weight:900;color:var(--bad);">{{ data.total_anomalies }}</div>
+    <div style="font-size:.78rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.5px;">Anomalies Blocked</div>
+  </div>
+</div>
+
+<!-- 30-DAY TREND CHART -->
+<div class="card" style="margin-bottom:20px;">
+  <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:14px;">📅 30-Day Attendance Trend</div>
+  <canvas id="trendChart" style="width:100%;max-height:280px;"></canvas>
+</div>
+
+<!-- DAY OF WEEK CHART -->
+<div class="g2" style="margin-bottom:20px;">
+  <div class="card">
+    <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:14px;">📆 Attendance by Day of Week</div>
+    <canvas id="dowChart" style="max-height:220px;"></canvas>
+  </div>
+
+  <!-- TOP ABSENT STUDENTS -->
+  <div class="card">
+    <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:14px;">⚠ Top 5 Most Absent Students</div>
+    {% if data.top_absent %}
+    <table class="tbl">
+      <thead><tr><th>Roll No</th><th>Name</th><th>Attended</th><th>%</th></tr></thead>
+      <tbody>
+      {% for s in data.top_absent %}
+      <tr>
+        <td><code style="font-family:var(--mono);font-size:.8rem;color:var(--a2);">{{ s.roll_no }}</code></td>
+        <td style="font-size:.82rem;">{{ s.name }}</td>
+        <td style="font-size:.82rem;">{{ s.attended }}</td>
+        <td>
+          <span style="font-weight:700;font-size:.85rem;
+            color:{% if s.pct >= 75 %}var(--ok){% elif s.pct >= 60 %}var(--warn){% else %}var(--bad){% endif %};">
+            {{ s.pct }}%
+          </span>
+          <span style="display:inline-block;margin-left:6px;">
+            <span class="b b-{% if s.pct >= 75 %}safe{% elif s.pct >= 60 %}warning{% else %}danger{% endif %}" style="font-size:.65rem;">
+              {% if s.pct >= 75 %}SAFE{% elif s.pct >= 60 %}WARN{% else %}RISK{% endif %}
+            </span>
+          </span>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:20px;color:var(--muted);font-size:.85rem;">No student data yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div style="text-align:center;margin-top:10px;">
+  <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-s">← Back to Dashboard</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const trendData = {{ data.trend | tojson }};
+const subjects  = {{ data.subjects | tojson }};
+const dowData   = {{ data.dow_counts | tojson }};
+
+// Colour palette
+const palette = ['#6366f1','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+
+// ── Trend Chart ────────────────────────────────────────────────────────────
+const allDates = Object.keys(Object.values(trendData)[0] || {});
+const datasets = Object.entries(trendData).map(([code, daily], i) => ({
+  label: subjects[code] || code,
+  data: allDates.map(d => daily[d] || 0),
+  borderColor: palette[i % palette.length],
+  backgroundColor: palette[i % palette.length] + '22',
+  tension: 0.3,
+  fill: true,
+  pointRadius: 2,
+}));
+
+new Chart(document.getElementById('trendChart'), {
+  type: 'line',
+  data: { labels: allDates.map(d => d.slice(5)), datasets },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: '#e8e8f0', font: { size: 11 } } },
+    },
+    scales: {
+      x: { ticks: { color: '#6b7280', maxTicksLimit: 10 }, grid: { color: '#2a2a3a' } },
+      y: { ticks: { color: '#6b7280' }, grid: { color: '#2a2a3a' }, beginAtZero: true },
+    },
+  },
+});
+
+// ── Day-of-week Chart ──────────────────────────────────────────────────────
+const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const dowValues = dayNames.map((_, i) => dowData[i] || 0);
+
+new Chart(document.getElementById('dowChart'), {
+  type: 'bar',
+  data: {
+    labels: dayNames,
+    datasets: [{
+      label: 'Attendance',
+      data: dowValues,
+      backgroundColor: palette,
+      borderRadius: 6,
+    }],
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#6b7280' }, grid: { color: '#2a2a3a' } },
+      y: { ticks: { color: '#6b7280' }, grid: { color: '#2a2a3a' }, beginAtZero: true },
+    },
+  },
+});
+</script>
+{% endblock %}

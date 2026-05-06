@@ -13,17 +13,28 @@
   </div>
   <table class="tbl">
     <thead>
-      <tr><th>Roll</th><th>Name</th><th>Subject</th><th>Session</th><th>Risk</th><th>Reason</th></tr>
+      <tr><th>Roll</th><th>Name</th><th>Subject</th><th>Session</th><th>Risk</th><th>Reason</th><th>AI</th></tr>
     </thead>
     <tbody>
     {% for f in flagged %}
-    <tr>
+    <tr id="flagged-{{ loop.index }}">
       <td><code style="font-family:var(--mono);font-size:.8rem;color:var(--a2);">{{ f.roll_no }}</code></td>
       <td style="font-size:.82rem;">{{ f.name }}</td>
       <td><span class="b b-{{ f.subject }}">{{ f.subject }}</span></td>
       <td style="font-size:.78rem;">{{ f.label }}</td>
       <td style="color:var(--bad);font-weight:700;font-size:.82rem;">{{ "%.2f"|format(f.risk_score) }}</td>
       <td style="font-size:.75rem;color:var(--muted);">{{ f.flag_reason }}</td>
+      <td>
+        <button onclick="explainAnomaly('HIGH_RISK_SCAN','{{ f.flag_reason | replace("'","") }}','HIGH','flagged-explain-{{ loop.index }}')"
+                class="btn btn-s" style="font-size:.72rem;padding:5px 10px;">
+          🤖 Explain
+        </button>
+      </td>
+    </tr>
+    <tr id="flagged-explain-{{ loop.index }}" style="display:none;">
+      <td colspan="7">
+        <div class="ai-explain-box"></div>
+      </td>
     </tr>
     {% endfor %}
     </tbody>
@@ -32,17 +43,15 @@
 {% endif %}
 
 <div class="card">
-  <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:14px;">
-    📋 All Anomaly Log
-  </div>
+  <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:14px;">📋 All Anomaly Log</div>
   {% if anomalies %}
   <table class="tbl">
     <thead>
-      <tr><th>Time</th><th>Type</th><th>Severity</th><th>Description</th></tr>
+      <tr><th>Time</th><th>Type</th><th>Severity</th><th>Description</th><th>AI</th></tr>
     </thead>
     <tbody>
     {% for a in anomalies %}
-    <tr>
+    <tr id="anom-row-{{ a.id }}">
       <td style="font-size:.75rem;color:var(--muted);white-space:nowrap;">{{ a.detected_at[:16] }}</td>
       <td style="font-size:.75rem;font-family:var(--mono);">{{ a.anomaly_type }}</td>
       <td>
@@ -53,6 +62,17 @@
         </span>
       </td>
       <td style="font-size:.8rem;">{{ a.description }}</td>
+      <td>
+        <button onclick="explainAnomaly('{{ a.anomaly_type }}','{{ a.description | replace("'","") }}','{{ a.severity }}','anom-explain-{{ a.id }}')"
+                class="btn btn-s" style="font-size:.72rem;padding:5px 10px;">
+          🤖 Explain
+        </button>
+      </td>
+    </tr>
+    <tr id="anom-explain-{{ a.id }}" style="display:none;">
+      <td colspan="5">
+        <div class="ai-explain-box"></div>
+      </td>
     </tr>
     {% endfor %}
     </tbody>
@@ -63,4 +83,44 @@
   </div>
   {% endif %}
 </div>
+
+<style>
+.ai-explain-box {
+  margin: 6px 0;
+  padding: 12px 16px;
+  background: rgba(99,102,241,.07);
+  border: 1px solid rgba(99,102,241,.3);
+  border-radius: 8px;
+  font-size: .82rem;
+  line-height: 1.6;
+}
+</style>
+<script>
+async function explainAnomaly(type, desc, severity, targetId) {
+  const row = document.getElementById(targetId);
+  const box = row.querySelector('.ai-explain-box');
+  if (row.style.display !== 'none') { row.style.display = 'none'; return; }
+  row.style.display = '';
+  box.innerHTML = '<span style="color:var(--muted);">⏳ Asking AI...</span>';
+  try {
+    const r = await fetch('/api/ai/explain-anomaly', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({type, description: desc, severity})
+    });
+    const d = await r.json();
+    if (d.error) {
+      box.innerHTML = `<span style="color:var(--bad);">${d.error}</span>`;
+    } else {
+      box.innerHTML = `
+        <strong style="color:var(--accent);">📖 Explanation:</strong><br/>
+        ${d.explanation}<br/><br/>
+        <strong style="color:var(--ok);">✅ Recommended Action:</strong><br/>
+        ${d.action}`;
+    }
+  } catch(e) {
+    box.innerHTML = '<span style="color:var(--bad);">Error connecting to AI.</span>';
+  }
+}
+</script>
 {% endblock %}

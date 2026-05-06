@@ -36,7 +36,6 @@ nav{background:var(--surf);border-bottom:1px solid var(--border);
                  border-radius:8px;display:flex;align-items:center;
                  justify-content:center;font-size:.9rem;}
 
-/* every nav item is a button */
 .nav-btn{
   display:inline-flex;align-items:center;gap:6px;
   padding:8px 16px;border-radius:8px;font-size:.82rem;font-weight:700;
@@ -46,7 +45,6 @@ nav{background:var(--surf);border-bottom:1px solid var(--border);
 }
 .nav-btn:hover{border-color:var(--accent);color:var(--text);background:rgba(99,102,241,.1);}
 
-/* colour variants */
 .nav-btn.green {border-color:rgba(16,185,129,.4); color:var(--ok);}
 .nav-btn.green:hover{background:rgba(16,185,129,.1);}
 .nav-btn.teal  {border-color:rgba(6,182,212,.4);  color:var(--a2);}
@@ -58,6 +56,8 @@ nav{background:var(--surf);border-bottom:1px solid var(--border);
 .nav-btn.red:hover{background:rgba(239,68,68,.1);}
 .nav-btn.warn  {border-color:rgba(245,158,11,.4); color:var(--warn);}
 .nav-btn.warn:hover{background:rgba(245,158,11,.1);}
+.nav-btn.cyan  {border-color:rgba(6,182,212,.4);  color:var(--a2);}
+.nav-btn.cyan:hover{background:rgba(6,182,212,.1);}
 
 .nav-spacer{flex:1;}
 
@@ -87,7 +87,7 @@ input,select,textarea{
 input:focus,select:focus{border-color:var(--accent);}
 input::placeholder{color:var(--muted);}
 
-/* ── BUTTONS (page content) ── */
+/* ── BUTTONS ── */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
      padding:12px 24px;border-radius:8px;font-size:.95rem;font-weight:700;
      cursor:pointer;border:1px solid var(--border);background:var(--surf2);
@@ -112,6 +112,7 @@ input::placeholder{color:var(--muted);}
 .b-warning{background:rgba(245,158,11,.15);color:var(--warn);}
 .b-danger{background:rgba(239,68,68,.15);color:var(--bad);}
 .b-critical{background:rgba(239,68,68,.3);color:#ff6b6b;}
+.b-warn{background:rgba(245,158,11,.15);color:var(--warn);}
 
 /* ── ALERTS ── */
 .fl{padding:12px 16px;border-radius:8px;font-size:.85rem;
@@ -179,19 +180,18 @@ input::placeholder{color:var(--muted);}
     QR Attend
   </div>
 
-  <!-- Always visible -->
-  <a class="nav-btn green" href="{{ url_for('home') }}">🏠 Home</a>
-  <a class="nav-btn teal"  href="{{ url_for('my_stats') }}">📊 My Stats</a>
-
   {% if session.get('teacher_ok') %}
-  <!-- Teacher buttons -->
+  <a class="nav-btn green"  href="{{ url_for('home') }}">🏠 Home</a>
   <a class="nav-btn purple" href="{{ url_for('teacher_dashboard') }}">📋 Dashboard</a>
   <a class="nav-btn purple" href="{{ url_for('generate_qr') }}">🔲 Generate QR</a>
   <a class="nav-btn purple" href="{{ url_for('all_students') }}">👥 Students</a>
+  <a class="nav-btn teal"   href="{{ url_for('my_stats') }}">📊 Stats</a>
+  <a class="nav-btn cyan"   href="{{ url_for('analytics') }}">📈 Analytics</a>
   <a class="nav-btn warn"   href="{{ url_for('view_anomalies') }}">🚨 Alerts</a>
   <div class="nav-spacer"></div>
   <a class="nav-btn red"    href="{{ url_for('teacher_logout') }}">🔒 Lock</a>
   {% else %}
+  <a class="nav-btn green"  href="{{ url_for('home') }}">🏠 Home</a>
   <div class="nav-spacer"></div>
   <a class="nav-btn purple" href="{{ url_for('teacher_gate') }}">👩‍🏫 Teacher Login</a>
   {% endif %}

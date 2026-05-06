@@ -6,3 +6,11 @@ anthropic>=0.25.0
 reportlab>=4.0.0
 matplotlib>=3.7.0
 gunicorn>=21.0.0
+anthropic
+flask
+gunicorn
+matplotlib
+Pillow
+python-dotenv
+qrcode[pil]
+reportlab

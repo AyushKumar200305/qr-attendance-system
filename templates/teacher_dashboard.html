@@ -4,9 +4,8 @@
 <div class="day-banner">
   <div class="pulse"></div>
   <div style="font-weight:600;">{{ today }}</div>
-  <div style="margin-left:auto;font-size:.78rem;">
-    👋 {{ teacher.name if teacher else '' }}
-  </div>
+  <div id="live-clock" style="margin-left:8px;font-size:.78rem;color:var(--muted);font-family:var(--mono);"></div>
+  <div style="margin-left:auto;font-size:.78rem;">👋 {{ teacher.name if teacher else '' }}</div>
 </div>
 
 <div class="pt" style="margin-top:20px;">
@@ -35,16 +34,73 @@
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;">
   <a href="{{ url_for('generate_qr') }}" class="btn btn-p">🔲 Generate QR</a>
   <a href="{{ url_for('all_students') }}" class="btn">👥 All Students</a>
+  <a href="{{ url_for('analytics') }}" class="btn" style="color:var(--a2);border-color:rgba(6,182,212,.3);">📈 Analytics</a>
   <a href="{{ url_for('view_anomalies') }}" class="btn">🚨 Security Alerts</a>
   <a href="{{ url_for('export_csv', subject='all') }}" class="btn">⬇ Export CSV</a>
+  {% if has_smtp %}
+  <form method="POST" action="{{ url_for('send_weekly_reports') }}" style="display:inline;">
+    <button type="submit" class="btn" style="color:var(--ok);border-color:rgba(16,185,129,.3);"
+            onclick="return confirm('Send weekly attendance reports to all students with email addresses?')">
+      📧 Send Weekly Reports
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+<!-- AI TEACHER REPORT -->
+<div class="card" style="margin-bottom:20px;border-color:rgba(99,102,241,.3);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <div style="font-size:.82rem;font-weight:700;color:var(--accent);">🤖 AI Class Intelligence Report</div>
+    <button onclick="generateAIReport()" id="ai-report-btn"
+            style="padding:7px 16px;background:var(--accent);border:none;border-radius:8px;
+                   color:#fff;cursor:pointer;font-size:.8rem;font-weight:700;">
+      Generate Report
+    </button>
+  </div>
+  <div id="ai-report-content" style="display:none;">
+    <div id="ai-report-text" style="font-size:.84rem;line-height:1.7;white-space:pre-wrap;"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button onclick="copyReport()"
+              style="padding:6px 14px;background:var(--surf2);border:1px solid var(--border);
+                     border-radius:6px;color:var(--muted);cursor:pointer;font-size:.78rem;">
+        📋 Copy Report
+      </button>
+    </div>
+  </div>
+  <div id="ai-report-loading" style="display:none;color:var(--muted);font-size:.83rem;">
+    ⏳ Generating AI report...
+  </div>
+</div>
+
+<!-- SUBJECT MANAGEMENT -->
+<div class="card" style="margin-bottom:20px;">
+  <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:14px;">📚 Subject Management</div>
+  <form method="POST" action="{{ url_for('add_subject_route') }}" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+    <input name="code" placeholder="Code (e.g. CS101)" style="flex:1;min-width:100px;"
+           oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"/>
+    <input name="name" placeholder="Subject Name (e.g. Computer Science)" style="flex:3;min-width:160px;"/>
+    <button type="submit" class="btn btn-p" style="flex-shrink:0;padding:10px 16px;font-size:.85rem;">+ Add</button>
+  </form>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    {% for code, name in subjects.items() %}
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;
+         background:var(--surf2);border:1px solid var(--border);border-radius:8px;">
+      <span class="b b-{{ code }}">{{ code }}</span>
+      <span style="font-size:.83rem;">{{ name }}</span>
+      <form method="POST" action="{{ url_for('delete_subject_route', code=code) }}" style="display:inline;">
+        <button type="submit" style="background:none;border:none;color:var(--muted);cursor:pointer;
+                font-size:.85rem;padding:0;" title="Delete subject"
+                onclick="return confirm('Delete subject {{ name }}? Only possible if no attendance records exist.')">✕</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
 </div>
 
 <!-- ATTENDANCE HEATMAP -->
 {% if heatmap %}
 <div class="card" style="margin-bottom:20px;">
-  <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:14px;">
-    📅 Last 14 Days Attendance
-  </div>
+  <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:14px;">📅 Last 14 Days Attendance</div>
   <div style="display:flex;gap:4px;align-items:flex-end;height:60px;">
     {% set max_val = heatmap.values()|max if heatmap.values()|max > 0 else 1 %}
     {% for date, cnt in heatmap.items() %}
@@ -56,8 +112,7 @@
     {% endfor %}
   </div>
   <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--muted);margin-top:4px;">
-    <span>{{ heatmap.keys()|list|first }}</span>
-    <span>Today</span>
+    <span>{{ heatmap.keys()|list|first }}</span><span>Today</span>
   </div>
 </div>
 {% endif %}
@@ -66,6 +121,7 @@
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
     <div style="font-size:.82rem;font-weight:700;color:var(--muted);">📋 Recent Sessions</div>
+    <div id="last-updated" style="font-size:.72rem;color:var(--muted);"></div>
   </div>
   {% if sessions %}
   <table class="tbl">
@@ -88,7 +144,13 @@
         <span style="color:var(--muted);font-size:.78rem;">● Closed</span>
         {% endif %}
       </td>
-      <td style="font-weight:700;color:var(--a2);">{{ s.att_count }}</td>
+      <td style="font-weight:700;color:var(--a2);">
+        {% if s.active %}
+        <span data-session="{{ s.id }}">{{ s.att_count }}</span>
+        {% else %}
+        {{ s.att_count }}
+        {% endif %}
+      </td>
       <td>
         {% if s.flag_count > 0 %}
         <span style="color:var(--bad);font-size:.78rem;font-weight:700;">⚠ {{ s.flag_count }}</span>
@@ -118,27 +180,88 @@
 
 <!-- RECENT ANOMALIES -->
 {% if anomalies %}
-<div class="card" style="border-color:rgba(239,68,68,.2);">
-  <div style="font-size:.82rem;font-weight:700;color:var(--bad);margin-bottom:12px;">
-    🚨 Recent Security Alerts
-  </div>
+<div class="card" style="border-color:rgba(239,68,68,.2);margin-top:18px;">
+  <div style="font-size:.82rem;font-weight:700;color:var(--bad);margin-bottom:12px;">🚨 Recent Security Alerts</div>
   {% for a in anomalies %}
-  <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;
-       border-bottom:1px solid var(--border);">
+  <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);">
     <span style="font-size:.72rem;padding:2px 6px;border-radius:4px;font-weight:700;flex-shrink:0;
           background:{% if a.severity=='HIGH' %}rgba(239,68,68,.2){% else %}rgba(245,158,11,.2){% endif %};
-          color:{% if a.severity=='HIGH' %}var(--bad){% else %}var(--warn){% endif %};">
-      {{ a.severity }}
-    </span>
+          color:{% if a.severity=='HIGH' %}var(--bad){% else %}var(--warn){% endif %};">{{ a.severity }}</span>
     <div>
       <div style="font-size:.82rem;">{{ a.description }}</div>
       <div style="font-size:.72rem;color:var(--muted);margin-top:2px;">{{ a.detected_at[:16] }}</div>
     </div>
   </div>
   {% endfor %}
-  <a href="{{ url_for('view_anomalies') }}" style="font-size:.78rem;color:var(--bad);display:block;margin-top:10px;">
-    View all alerts →
-  </a>
+  <a href="{{ url_for('view_anomalies') }}" style="font-size:.78rem;color:var(--bad);display:block;margin-top:10px;">View all alerts →</a>
 </div>
 {% endif %}
+
+<script>
+// Live clock
+function updateClock() {
+  const now = new Date();
+  document.getElementById('live-clock').textContent =
+    now.toLocaleTimeString('en-IN', {hour12:true});
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// Live session count polling
+const liveSpans = document.querySelectorAll('[data-session]');
+async function pollCounts() {
+  for (const span of liveSpans) {
+    const id = span.dataset.session;
+    try {
+      const r   = await fetch(`/api/session/${id}/count`);
+      const d   = await r.json();
+      const old = parseInt(span.textContent);
+      if (d.count !== old) {
+        span.textContent = d.count;
+        span.style.transition = 'background .3s';
+        span.style.background = 'rgba(16,185,129,.2)';
+        span.style.borderRadius = '4px';
+        span.style.padding = '2px 6px';
+        setTimeout(() => { span.style.background = ''; }, 1200);
+      }
+    } catch(e) {}
+  }
+  document.getElementById('last-updated').textContent =
+    'Last updated: ' + new Date().toLocaleTimeString('en-IN', {hour12:true});
+}
+if (liveSpans.length) {
+  pollCounts();
+  setInterval(pollCounts, 8000);
+}
+
+// AI Teacher Report
+async function generateAIReport() {
+  document.getElementById('ai-report-btn').disabled = true;
+  document.getElementById('ai-report-btn').textContent = '...';
+  document.getElementById('ai-report-loading').style.display = 'block';
+  document.getElementById('ai-report-content').style.display = 'none';
+  try {
+    const r   = await fetch('/api/ai/teacher-report', {method:'POST'});
+    const d   = await r.json();
+    document.getElementById('ai-report-loading').style.display = 'none';
+    document.getElementById('ai-report-content').style.display = 'block';
+    document.getElementById('ai-report-text').textContent = d.report || d.error || 'No response.';
+  } catch(e) {
+    document.getElementById('ai-report-loading').style.display = 'none';
+    document.getElementById('ai-report-text').textContent = 'Error connecting to AI.';
+    document.getElementById('ai-report-content').style.display = 'block';
+  }
+  document.getElementById('ai-report-btn').disabled = false;
+  document.getElementById('ai-report-btn').textContent = 'Generate Report';
+}
+
+function copyReport() {
+  const text = document.getElementById('ai-report-text').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = '📋 Copy Report'; }, 2000);
+  });
+}
+</script>
 {% endblock %}
