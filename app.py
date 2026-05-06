@@ -158,7 +158,7 @@ def _send_class_start_emails(subject_name, label, att_url, expires_label, teache
     return sent, failed
 
 
-def _build_report_html(student, records, week_start, week_end, overall_pct):
+def _build_report_html(student, records, week_start, week_end, overall_pct, announcements=None):
     """Build a Gmail-compatible HTML attendance report."""
     if overall_pct < 60:
         alert_bg, alert_border, alert_color, alert_icon, alert_msg = (
@@ -190,6 +190,35 @@ def _build_report_html(student, records, week_start, week_end, overall_pct):
             <span style="background:{status_bg};color:{status_color};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">{r['status'].upper()}</span>
           </td>
         </tr>"""
+
+    ann_html = ''
+    if announcements:
+        priority_styles = {
+            'urgent':    ('#fef2f2', '#fca5a5', '#991b1b', '🚨'),
+            'important': ('#fffbeb', '#fcd34d', '#92400e', '⚠️'),
+            'normal':    ('#eff6ff', '#bfdbfe', '#1e40af', '📢'),
+        }
+        items_html = ''
+        for ann in announcements:
+            bg, border, color, icon = priority_styles.get(
+                ann['priority'], priority_styles['normal'])
+            items_html += f"""
+            <tr><td style="padding:6px 0;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr><td style="background:{bg};border:1px solid {border};border-radius:8px;padding:12px 14px;">
+                  <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:{color};">{icon} {ann['title']}</p>
+                  <p style="margin:0;font-size:13px;color:#374151;line-height:1.5;">{ann['body']}</p>
+                </td></tr>
+              </table>
+            </td></tr>"""
+        ann_html = f"""
+        <!-- Announcements -->
+        <tr><td style="padding:20px 32px 0;">
+          <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#111827;text-transform:uppercase;letter-spacing:.05em;">📢 Announcements from Your Teacher</p>
+          <table width="100%" cellpadding="0" cellspacing="0">
+            {items_html}
+          </table>
+        </td></tr>"""
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -232,6 +261,8 @@ def _build_report_html(student, records, week_start, week_end, overall_pct):
             {rows_html}
           </table>
         </td></tr>
+
+        {ann_html}
 
         <!-- Footer -->
         <tr><td style="padding:24px 32px 28px;">
@@ -687,7 +718,8 @@ def send_weekly_reports():
         week_start  = (datetime.now() - timedelta(days=7)).strftime('%d %b')
         week_end    = datetime.now().strftime('%d %b %Y')
 
-        html = _build_report_html(s, records, week_start, week_end, overall_pct)
+        html = _build_report_html(s, records, week_start, week_end, overall_pct,
+                                   announcements=get_announcements())
 
         ok, err = _send_email(s['email'],
                               f"Weekly Attendance Report — {week_start} to {week_end}",
@@ -1331,7 +1363,8 @@ def _auto_send_weekly_reports():
             week_start  = (datetime.now() - timedelta(days=7)).strftime('%d %b')
             week_end    = datetime.now().strftime('%d %b %Y')
 
-            html = _build_report_html(s, records, week_start, week_end, overall_pct)
+            html = _build_report_html(s, records, week_start, week_end, overall_pct,
+                                       announcements=get_announcements())
 
             ok, _ = _send_email(
                 s['email'],
