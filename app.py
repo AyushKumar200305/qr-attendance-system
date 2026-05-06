@@ -330,18 +330,86 @@ def add_announcement_route():
     title    = request.form.get('title', '').strip()
     body     = request.form.get('body', '').strip()
     priority = request.form.get('priority', 'normal')
-    if title and body:
-        add_announcement(title, body, priority)
-        flash('Announcement posted.', 'success')
-    else:
+    if not title or not body:
         flash('Title and message are required.', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+
+    if not GMAIL_USER or not GMAIL_APP_PASS:
+        flash('Email not configured — set GMAIL_USER and GMAIL_APP_PASS to send announcements.', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+
+    # Build a standalone announcement email (not a weekly report)
+    priority_styles = {
+        'urgent':    ('#fef2f2', '#fca5a5', '#991b1b', '🚨 Urgent'),
+        'important': ('#fffbeb', '#fcd34d', '#92400e', '⚠️ Important'),
+        'normal':    ('#eff6ff', '#bfdbfe', '#1e40af', '📢 Announcement'),
+    }
+    bg, border, color, label = priority_styles.get(priority, priority_styles['normal'])
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0"
+             style="background:#ffffff;border-radius:12px;overflow:hidden;
+                    border:1px solid #e5e7eb;max-width:600px;">
+
+        <tr><td style="background:#2f81f7;padding:24px 32px;text-align:center;">
+          <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">{label}</p>
+          <p style="margin:6px 0 0;font-size:12px;color:#bfdbfe;">From your teacher</p>
+        </td></tr>
+
+        <tr><td style="padding:28px 32px 0;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="background:{bg};border:1px solid {border};border-radius:8px;
+                           padding:18px 20px;">
+              <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:{color};">{title}</p>
+              <p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">{body}</p>
+            </td></tr>
+          </table>
+        </td></tr>
+
+        <tr><td style="padding:24px 32px 28px;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">
+            This message was sent by your institution's QR Attendance System.
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+    conn = get_conn()
+    students = conn.execute(
+        "SELECT * FROM students WHERE email != '' AND email IS NOT NULL"
+    ).fetchall()
+    conn.close()
+
+    if not students:
+        flash('No students with email addresses found.', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+
+    subject_line = f"[{label}] {title}"
+    sent = 0; failed = 0
+    for s in students:
+        ok, err = _send_email(dict(s)['email'], subject_line, html_body)
+        if ok: sent += 1
+        else:  failed += 1
+
+    if sent:
+        flash(f'Announcement emailed to {sent} student(s).', 'success')
+    if failed:
+        flash(f'{failed} email(s) failed to send.', 'danger')
     return redirect(url_for('teacher_dashboard'))
 
 @app.route('/teacher/announcements/delete/<int:ann_id>', methods=['POST'])
 @teacher_required
 def delete_announcement_route(ann_id):
     delete_announcement(ann_id)
-    flash('Announcement deleted.', 'success')
     return redirect(url_for('teacher_dashboard'))
 
 

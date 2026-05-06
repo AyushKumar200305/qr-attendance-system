@@ -312,53 +312,29 @@
 </div>
 
 <!-- ANNOUNCEMENTS -->
-<div class="mini-card" style="border-color:rgba(99,102,241,.25);margin-bottom:20px;">
-  <div class="section-title">📢 Announcements</div>
-  <form method="POST" action="{{ url_for('add_announcement_route') }}" style="margin-bottom:14px;">
+<div class="mini-card" style="margin-bottom:20px;">
+  <div class="section-title">Email Announcement</div>
+  <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px;">
+    Compose a message below and click <strong style="color:var(--text);">Send to All</strong> — it will be emailed immediately to every registered student.
+  </p>
+  <form method="POST" action="{{ url_for('add_announcement_route') }}">
     <div style="display:flex;flex-direction:column;gap:8px;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <input name="title" placeholder="Announcement title…" required
-               style="flex:2;min-width:180px;padding:9px 12px;font-size:.85rem;"/>
-        <select name="priority" style="flex:1;min-width:110px;padding:9px 12px;font-size:.85rem;width:auto;">
-          <option value="normal">📢 Normal</option>
-          <option value="important">⚠️ Important</option>
-          <option value="urgent">🚨 Urgent</option>
+        <input name="title" placeholder="Subject / title…" required
+               style="flex:2;min-width:180px;"/>
+        <select name="priority" style="flex:1;min-width:110px;width:auto;">
+          <option value="normal">Normal</option>
+          <option value="important">Important</option>
+          <option value="urgent">Urgent</option>
         </select>
-        <button type="submit" class="btn btn-p" style="padding:9px 18px;font-size:.84rem;flex-shrink:0;">Post</button>
       </div>
-      <textarea name="body" placeholder="Write your message here…" required rows="2"
-                style="resize:vertical;padding:9px 12px;font-size:.85rem;border-radius:8px;
-                       background:var(--surf2);border:1px solid var(--border);color:var(--text);
-                       font-family:inherit;"></textarea>
+      <textarea name="body" placeholder="Write your message here…" required rows="3"
+                style="resize:vertical;"></textarea>
+      <div>
+        <button type="submit" class="btn btn-p" style="padding:8px 20px;">Send to All Students</button>
+      </div>
     </div>
   </form>
-  {% if announcements %}
-    {% for ann in announcements %}
-    {% set abg = {'urgent':'rgba(239,68,68,.1)','important':'rgba(245,158,11,.1)','normal':'rgba(99,102,241,.07)'} %}
-    {% set abc = {'urgent':'rgba(239,68,68,.35)','important':'rgba(245,158,11,.35)','normal':'rgba(99,102,241,.25)'} %}
-    {% set atc = {'urgent':'var(--bad)','important':'var(--warn)','normal':'var(--accent)'} %}
-    {% set aem = {'urgent':'🚨','important':'⚠️','normal':'📢'} %}
-    <div style="background:{{ abg.get(ann.priority,'rgba(99,102,241,.07)') }};
-                border:1px solid {{ abc.get(ann.priority,'rgba(99,102,241,.25)') }};
-                border-radius:10px;padding:12px 14px;margin-bottom:8px;">
-      <div style="display:flex;align-items:flex-start;gap:8px;">
-        <span>{{ aem.get(ann.priority,'📢') }}</span>
-        <div style="flex:1;">
-          <div style="font-weight:700;color:{{ atc.get(ann.priority,'var(--accent)') }};font-size:.86rem;">{{ ann.title }}</div>
-          <div style="font-size:.82rem;color:var(--text);margin-top:4px;line-height:1.5;">{{ ann.body }}</div>
-          <div style="font-size:.7rem;color:var(--muted);margin-top:6px;">{{ ann.created_at[:16] }}</div>
-        </div>
-        <form method="POST" action="{{ url_for('delete_announcement_route', ann_id=ann.id) }}" style="flex-shrink:0;">
-          <button type="submit" title="Delete"
-                  style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;padding:2px 6px;"
-                  onclick="return confirm('Delete this announcement?')">✕</button>
-        </form>
-      </div>
-    </div>
-    {% endfor %}
-  {% else %}
-  <div style="text-align:center;padding:16px 0;color:var(--muted);font-size:.83rem;">No announcements yet.</div>
-  {% endif %}
 </div>
 
 <!-- ANOMALIES -->
