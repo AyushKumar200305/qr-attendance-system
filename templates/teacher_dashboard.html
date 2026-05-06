@@ -130,7 +130,7 @@
       </strong>
       to all students with email addresses.
       {% if not has_smtp %}
-      <span style="color:var(--bad);"> · Mailgun not configured — add MAILGUN_API_KEY and MAILGUN_DOMAIN secrets first.</span>
+      <span style="color:var(--bad);"> · SendGrid not configured — add SENDGRID_API_KEY and SENDGRID_FROM secrets first.</span>
       {% endif %}
     </div>
     {% endif %}

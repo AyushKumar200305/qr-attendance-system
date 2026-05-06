@@ -5,7 +5,8 @@ A smart classroom QR-code-based attendance system with AI/ML anomaly detection, 
 ## Run & Operate
 
 - **Run**: `python app.py`
-- **Required env vars**: None (uses SQLite, no external services)
+- **Required env vars**: None (core features work without secrets)
+- **Optional secrets**: `ANTHROPIC_API_KEY` (AI reports), `SENDGRID_API_KEY` + `SENDGRID_FROM` (email reports), `SECRET_KEY` (session security)
 
 ## Stack
 
@@ -14,6 +15,9 @@ A smart classroom QR-code-based attendance system with AI/ML anomaly detection, 
 - SQLite (via `database.py`, stored in `data/attendance.db`)
 - Pillow + qrcode (QR image generation)
 - Gunicorn (production server)
+- Anthropic Claude (optional AI analysis)
+- SendGrid (optional email delivery)
+- APScheduler (weekly automated email job)
 
 ## Where things live
 
@@ -30,26 +34,30 @@ A smart classroom QR-code-based attendance system with AI/ML anomaly detection, 
 - SQLite chosen for simplicity; no migration tool needed — `init_db()` handles schema on startup
 - Device fingerprinting via IP + User-Agent + Accept-Language hash to prevent attendance sharing
 - ML anomaly detection is local/pure-Python (no external ML service)
-- Secret key is hardcoded (acceptable for a classroom tool; change for production)
+- Email delivery uses SendGrid HTTP API (no SMTP library needed)
+- Secret key falls back to a hardcoded default if `SECRET_KEY` env var not set
 
 ## Product
 
 - Teachers generate QR codes per subject/session; students scan and submit name + roll number
 - Anti-sharing: one device per session, one roll number per session
 - AI flags suspicious scans; risk scores predict detention likelihood
+- PDF reports with optional AI-written student analysis (requires Anthropic key)
+- Weekly email reports to students via SendGrid (requires SendGrid key + sender address)
 - CSV export of attendance per subject or all subjects
-- Student self-service stats at `/mystats`
 
 ## User preferences
 
-_Populate as you build_
+- Uses SendGrid (not Mailgun) for email delivery
+- Uses Anthropic Claude for AI features
 
 ## Gotchas
 
 - App runs on `0.0.0.0:5000` so Replit preview works
-- `init_db()` is called at startup in `__main__` block only — not in gunicorn; wrap in `with app.app_context()` if switching to gunicorn entrypoint
-- QR codes embed the local LAN IP — in Replit, use the public dev domain for student scanning
+- `init_db()` is called at import time in `app.py` — safe for both dev and gunicorn
+- QR codes embed the public Replit dev domain so students can scan from their phones
+- APScheduler must not double-start: guarded with `if not scheduler.running`
 
 ## Pointers
 
-- Skills: `workflows`, `package-management`, `deployment`
+- Skills: `workflows`, `package-management`, `deployment`, `environment-secrets`

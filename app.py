@@ -42,10 +42,9 @@ init_db()
 QR_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'qrcodes')
 os.makedirs(QR_FOLDER, exist_ok=True)
 
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
-MAILGUN_API_KEY = os.environ.get('MAILGUN_API_KEY', '')
-MAILGUN_DOMAIN  = os.environ.get('MAILGUN_DOMAIN', '')
-MAILGUN_FROM    = os.environ.get('MAILGUN_FROM', f'attendance@{MAILGUN_DOMAIN}')
+ANTHROPIC_API_KEY  = os.environ.get('ANTHROPIC_API_KEY', '')
+SENDGRID_API_KEY   = os.environ.get('SENDGRID_API_KEY', '')
+SENDGRID_FROM      = os.environ.get('SENDGRID_FROM', '')
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def get_local_ip():
@@ -83,24 +82,27 @@ def _get_ai_client():
         return None
 
 def _send_email(to_email, subject, html_body):
-    """Send an HTML email via Mailgun HTTP API. Returns (ok, error_msg)."""
-    if not MAILGUN_API_KEY or not MAILGUN_DOMAIN:
-        return False, 'Mailgun not configured. Set MAILGUN_API_KEY and MAILGUN_DOMAIN secrets.'
+    """Send an HTML email via SendGrid HTTP API. Returns (ok, error_msg)."""
+    if not SENDGRID_API_KEY or not SENDGRID_FROM:
+        return False, 'SendGrid not configured. Set SENDGRID_API_KEY and SENDGRID_FROM secrets.'
     try:
         resp = requests.post(
-            f'https://api.mailgun.net/v3/{MAILGUN_DOMAIN}/messages',
-            auth=('api', MAILGUN_API_KEY),
-            data={
-                'from':    MAILGUN_FROM,
-                'to':      to_email,
+            'https://api.sendgrid.com/v3/mail/send',
+            headers={
+                'Authorization': f'Bearer {SENDGRID_API_KEY}',
+                'Content-Type':  'application/json',
+            },
+            json={
+                'personalizations': [{'to': [{'email': to_email}]}],
+                'from':    {'email': SENDGRID_FROM},
                 'subject': subject,
-                'html':    html_body,
+                'content': [{'type': 'text/html', 'value': html_body}],
             },
             timeout=15
         )
-        if resp.status_code == 200 or resp.status_code == 201:
+        if resp.status_code in (200, 202):
             return True, ''
-        return False, f'Mailgun error {resp.status_code}: {resp.text}'
+        return False, f'SendGrid error {resp.status_code}: {resp.text}'
     except Exception as e:
         return False, str(e)
 
@@ -456,8 +458,8 @@ def download_student_report(roll):
 @app.route('/teacher/send-weekly-reports', methods=['POST'])
 @teacher_required
 def send_weekly_reports():
-    if not MAILGUN_API_KEY or not MAILGUN_DOMAIN:
-        flash('Email not configured. Please set MAILGUN_API_KEY and MAILGUN_DOMAIN secrets.', 'danger')
+    if not SENDGRID_API_KEY or not SENDGRID_FROM:
+        flash('Email not configured. Please set SENDGRID_API_KEY and SENDGRID_FROM secrets.', 'danger')
         return redirect(url_for('teacher_dashboard'))
 
     conn = get_conn()
@@ -621,7 +623,7 @@ def teacher_dashboard():
     heatmap   = get_attendance_heatmap(14)
     anomalies = get_anomalies(5)
     subjects  = get_all_subjects()
-    has_smtp  = bool(MAILGUN_API_KEY and MAILGUN_DOMAIN)
+    has_smtp  = bool(SENDGRID_API_KEY and SENDGRID_FROM)
     schedule  = get_email_schedule()
     return render_template('teacher_dashboard.html',
         sessions=sessions, subjects=subjects,
@@ -1032,8 +1034,8 @@ DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sund
 def _auto_send_weekly_reports():
     """Called by APScheduler — sends weekly reports to all students with emails."""
     with app.app_context():
-        if not MAILGUN_API_KEY or not MAILGUN_DOMAIN:
-            print('[Scheduler] Mailgun not configured, skipping.')
+        if not SENDGRID_API_KEY or not SENDGRID_FROM:
+            print('[Scheduler] SendGrid not configured, skipping.')
             return
         conn = get_conn()
         students = conn.execute(
