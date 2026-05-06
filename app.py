@@ -133,16 +133,14 @@ def _send_class_start_emails(subject_name, label, att_url, expires_label, teache
               <span style="font-size:15px;color:#ef4444;font-weight:700;">{expires_label}</span>
             </td></tr>
           </table>
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr><td align="center">
-              <a href="{att_url}" style="display:inline-block;background:#6366f1;color:#ffffff;
-                 text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;
-                 font-size:16px;">Mark My Attendance →</a>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;margin-bottom:16px;">
+            <tr><td style="padding:14px 18px;">
+              <p style="margin:0;font-size:14px;color:#92400e;font-weight:600;">📷 Scan the QR code in class to mark your attendance.</p>
+              <p style="margin:6px 0 0;font-size:13px;color:#78350f;">Attendance can only be marked by physically scanning the QR code displayed by your teacher. Make sure to arrive on time before it expires.</p>
             </td></tr>
           </table>
           <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
-            Mark your attendance before the session expires.<br>
-            Sent by QR Attendance System.
+            This is a class notification from your institution's QR Attendance System.
           </p>
         </td></tr>
       </table>
@@ -1078,19 +1076,70 @@ def ai_student_chat():
 def ai_teacher_report():
     if not GROQ_API_KEY:
         return jsonify({'error': 'AI not configured. Please add GROQ_API_KEY secret.'}), 503
+
     insights   = get_class_insights()
     risk_list  = get_all_students_risk()
-    critical   = [s for s in risk_list if s['worst_risk'] in ('critical','danger')]
-    context    = (f"Class insights: {[i['text'] for i in insights]}. "
-                  f"Students at risk ({len(critical)}): "
-                  + ", ".join([f"{s['name']} ({s['min_pct']}%)" for s in critical[:10]]))
+    subjects   = get_all_subjects()
+
+    conn = get_conn()
+    totals = {r['subject']: r['count'] for r in
+              conn.execute("SELECT subject, count FROM total_classes").fetchall()}
+    total_students = conn.execute("SELECT COUNT(*) as cnt FROM students").fetchone()['cnt']
+    total_sessions = conn.execute("SELECT COUNT(*) as cnt FROM qr_sessions").fetchone()['cnt']
+    week_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+    flagged_week = conn.execute(
+        "SELECT COUNT(*) as cnt FROM attendance WHERE flagged=1 AND marked_at >= ?",
+        (week_ago,)).fetchone()['cnt']
+    conn.close()
+
+    subject_stats = []
+    for code, name in subjects.items():
+        tot = totals.get(code, 0)
+        if tot == 0:
+            continue
+        below75 = sum(1 for s in risk_list
+                      if any(True for c, n in subjects.items()
+                             if c == code and s['min_pct'] < 75))
+        subject_stats.append(f"{name}: {tot} classes held")
+
+    critical  = [s for s in risk_list if s['worst_risk'] == 'critical']
+    danger    = [s for s in risk_list if s['worst_risk'] == 'danger']
+    warning   = [s for s in risk_list if s['worst_risk'] == 'warning']
+    safe      = [s for s in risk_list if s['worst_risk'] == 'safe']
+
+    critical_names = ", ".join([f"{s['name']} ({s['min_pct']}%)" for s in critical[:8]])
+    danger_names   = ", ".join([f"{s['name']} ({s['min_pct']}%)" for s in danger[:8]])
+    warning_names  = ", ".join([f"{s['name']} ({s['min_pct']}%)" for s in warning[:8]])
+
+    insight_texts = " | ".join([i['text'] for i in insights]) or "No specific alerts."
+
+    prompt = f"""You are an experienced academic attendance officer generating a formal, detailed class report for a teacher.
+
+ATTENDANCE DATA:
+- Total students: {total_students}
+- Total sessions held: {total_sessions}
+- Subjects: {', '.join([f"{n} ({c})" for c, n in subjects.items()])}
+- Classes held per subject: {'; '.join(subject_stats) if subject_stats else 'None yet'}
+- Suspicious/flagged scans this week: {flagged_week}
+
+STUDENT RISK BREAKDOWN:
+- CRITICAL (<50% attendance): {len(critical)} students — {critical_names or 'None'}
+- DANGER (50–60%): {len(danger)} students — {danger_names or 'None'}
+- WARNING (60–75%): {len(warning)} students — {warning_names or 'None'}
+- SAFE (≥75%): {len(safe)} students
+
+SYSTEM INSIGHTS: {insight_texts}
+
+Generate a professional, structured attendance report with exactly these 4 sections. Use plain text only (no markdown symbols like **, ##, or *). Write each section heading in ALL CAPS followed by a colon. Be specific, name actual students where relevant, and give concrete actionable advice.
+
+OVERALL HEALTH:
+URGENT ATTENTION REQUIRED:
+TREND ANALYSIS:
+RECOMMENDED ACTIONS:"""
+
     try:
         client = _get_ai_client()
-        report = _ai_complete(client, [{'role': 'user', 'content':
-            f"As an educational analytics expert, generate a structured class attendance report "
-            f"with these sections: OVERALL HEALTH, URGENT ATTENTION, TREND ANALYSIS, "
-            f"RECOMMENDED ACTIONS. Data: {context}. Be specific and actionable."}],
-            max_tokens=600)
+        report = _ai_complete(client, [{'role': 'user', 'content': prompt}], max_tokens=900)
         return jsonify({'report': report})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
