@@ -542,7 +542,7 @@ def send_weekly_reports():
     if sent:
         flash(f'Weekly reports sent to {sent} student(s).', 'success')
     if failed:
-        flash(f'{failed} report(s) failed. Check Mailgun settings.', 'danger')
+        flash(f'{failed} report(s) failed. Check SendGrid settings.', 'danger')
     if not students:
         flash('No students with email addresses found.', 'danger')
     return redirect(url_for('teacher_dashboard'))
