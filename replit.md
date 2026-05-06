@@ -6,7 +6,7 @@ A smart classroom QR-code-based attendance system with AI/ML anomaly detection, 
 
 - **Run**: `python app.py`
 - **Required env vars**: None (core features work without secrets)
-- **Optional secrets**: `ANTHROPIC_API_KEY` (AI reports), `GMAIL_USER` + `GMAIL_APP_PASS` (email reports), `SECRET_KEY` (session security)
+- **Optional secrets**: `XAI_API_KEY` (Grok AI reports), `GMAIL_USER` + `GMAIL_APP_PASS` (email reports), `SECRET_KEY` (session security)
 
 ## Stack
 
@@ -15,7 +15,7 @@ A smart classroom QR-code-based attendance system with AI/ML anomaly detection, 
 - SQLite (via `database.py`, stored in `data/attendance.db`)
 - Pillow + qrcode (QR image generation)
 - Gunicorn (production server)
-- Anthropic Claude (optional AI analysis)
+- Grok (xAI) via OpenAI-compatible API (optional AI analysis)
 - Gmail SMTP (optional email delivery via app password)
 - APScheduler (weekly automated email job)
 
@@ -42,14 +42,14 @@ A smart classroom QR-code-based attendance system with AI/ML anomaly detection, 
 - Teachers generate QR codes per subject/session; students scan and submit name + roll number
 - Anti-sharing: one device per session, one roll number per session
 - AI flags suspicious scans; risk scores predict detention likelihood
-- PDF reports with optional AI-written student analysis (requires Anthropic key)
+- PDF reports with optional AI-written student analysis (requires XAI_API_KEY)
 - Weekly email reports to students via Gmail SMTP (requires GMAIL_USER + GMAIL_APP_PASS)
 - CSV export of attendance per subject or all subjects
 
 ## User preferences
 
 - Uses Gmail SMTP with app password for email delivery
-- Uses Anthropic Claude for AI features
+- Uses Grok (xAI) for AI features via OpenAI-compatible API (`grok-3` model)
 
 ## Gotchas
 

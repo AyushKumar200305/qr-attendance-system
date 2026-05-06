@@ -42,9 +42,9 @@ init_db()
 QR_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'qrcodes')
 os.makedirs(QR_FOLDER, exist_ok=True)
 
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
-GMAIL_USER        = os.environ.get('GMAIL_USER', '').strip()
-GMAIL_APP_PASS    = os.environ.get('GMAIL_APP_PASS', '').replace(' ', '').strip()
+XAI_API_KEY    = os.environ.get('XAI_API_KEY', '')
+GMAIL_USER     = os.environ.get('GMAIL_USER', '').strip()
+GMAIL_APP_PASS = os.environ.get('GMAIL_APP_PASS', '').replace(' ', '').strip()
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def get_local_ip():
@@ -73,13 +73,26 @@ def teacher_required(f):
     return wrap
 
 def _get_ai_client():
-    if not ANTHROPIC_API_KEY:
+    if not XAI_API_KEY:
         return None
     try:
-        import anthropic
-        return anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        from openai import OpenAI
+        return OpenAI(api_key=XAI_API_KEY, base_url='https://api.x.ai/v1')
     except Exception:
         return None
+
+def _ai_complete(client, messages, system=None, max_tokens=400):
+    """Unified Grok chat completion. Returns text or raises."""
+    msgs = []
+    if system:
+        msgs.append({'role': 'system', 'content': system})
+    msgs.extend(messages)
+    resp = client.chat.completions.create(
+        model='grok-3',
+        max_tokens=max_tokens,
+        messages=msgs
+    )
+    return resp.choices[0].message.content
 
 def _build_report_html(student, records, week_start, week_end, overall_pct):
     """Build a Gmail-compatible HTML attendance report."""
@@ -483,22 +496,16 @@ def download_student_report(roll):
         client = _get_ai_client()
         if client:
             try:
-                import anthropic
-                context = f"Student {student['name']} (Roll: {student['roll_no']}). " \
-                          f"Overall attendance: {overall_pct}%. " \
-                          + " | ".join([f"{r['name']}: {r['percentage']}% ({r['status']})"
-                                        for r in records])
-                resp = client.messages.create(
-                    model='claude-sonnet-4-5',
-                    max_tokens=300,
-                    messages=[{
-                        'role': 'user',
-                        'content': f"As an academic advisor, write a 3-4 sentence personalized "
-                                   f"attendance risk analysis for this student: {context}. "
-                                   f"Be specific, constructive, and encouraging."
-                    }]
-                )
-                ai_analysis = resp.content[0].text
+                context = (f"Student {student['name']} (Roll: {student['roll_no']}). "
+                           f"Overall attendance: {overall_pct}%. "
+                           + " | ".join([f"{r['name']}: {r['percentage']}% ({r['status']})"
+                                         for r in records]))
+                ai_analysis = _ai_complete(client, [{
+                    'role': 'user',
+                    'content': (f"As an academic advisor, write a 3-4 sentence personalized "
+                                f"attendance risk analysis for this student: {context}. "
+                                f"Be specific, constructive, and encouraging.")
+                }], max_tokens=300)
             except Exception:
                 pass
 
@@ -946,8 +953,8 @@ def session_count(sess_id):
 @app.route('/api/ai/student-chat', methods=['POST'])
 @teacher_required
 def ai_student_chat():
-    if not ANTHROPIC_API_KEY:
-        return jsonify({'error': 'AI not configured. Please add ANTHROPIC_API_KEY secret.'}), 503
+    if not XAI_API_KEY:
+        return jsonify({'error': 'AI not configured. Please add XAI_API_KEY secret.'}), 503
     data    = request.get_json() or {}
     roll    = data.get('roll', '')
     message = data.get('message', '')
@@ -958,7 +965,6 @@ def ai_student_chat():
         return jsonify({'error': 'Student not found'}), 404
 
     records, _  = get_student_stats(student['id'])
-    risk_data   = predict_detention_risk(student['id'])
     overall_pct = round(sum(r['percentage'] for r in records) / len(records), 1) if records else 0
 
     context = (f"Student: {student['name']}, Roll: {student['roll_no']}, "
@@ -970,17 +976,13 @@ def ai_student_chat():
     messages.append({'role': 'user', 'content': message})
 
     try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        resp = client.messages.create(
-            model='claude-sonnet-4-5',
-            max_tokens=400,
-            system=(f"You are a helpful academic advisor. Student data: {context}. "
-                    f"Answer concisely about attendance, risk, and improvement tips. "
-                    f"Be friendly, direct, and specific to this student's data."),
-            messages=messages
-        )
-        return jsonify({'reply': resp.content[0].text})
+        client = _get_ai_client()
+        reply = _ai_complete(client, messages,
+                             system=(f"You are a helpful academic advisor. Student data: {context}. "
+                                     f"Answer concisely about attendance, risk, and improvement tips. "
+                                     f"Be friendly, direct, and specific to this student's data."),
+                             max_tokens=400)
+        return jsonify({'reply': reply})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -989,8 +991,8 @@ def ai_student_chat():
 @app.route('/api/ai/teacher-report', methods=['POST'])
 @teacher_required
 def ai_teacher_report():
-    if not ANTHROPIC_API_KEY:
-        return jsonify({'error': 'AI not configured. Please add ANTHROPIC_API_KEY secret.'}), 503
+    if not XAI_API_KEY:
+        return jsonify({'error': 'AI not configured. Please add XAI_API_KEY secret.'}), 503
     insights   = get_class_insights()
     risk_list  = get_all_students_risk()
     critical   = [s for s in risk_list if s['worst_risk'] in ('critical','danger')]
@@ -998,17 +1000,13 @@ def ai_teacher_report():
                   f"Students at risk ({len(critical)}): "
                   + ", ".join([f"{s['name']} ({s['min_pct']}%)" for s in critical[:10]]))
     try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        resp = client.messages.create(
-            model='claude-sonnet-4-5',
-            max_tokens=600,
-            messages=[{'role': 'user', 'content':
-                f"As an educational analytics expert, generate a structured class attendance report "
-                f"with these sections: OVERALL HEALTH, URGENT ATTENTION, TREND ANALYSIS, "
-                f"RECOMMENDED ACTIONS. Data: {context}. Be specific and actionable."}]
-        )
-        return jsonify({'report': resp.content[0].text})
+        client = _get_ai_client()
+        report = _ai_complete(client, [{'role': 'user', 'content':
+            f"As an educational analytics expert, generate a structured class attendance report "
+            f"with these sections: OVERALL HEALTH, URGENT ATTENTION, TREND ANALYSIS, "
+            f"RECOMMENDED ACTIONS. Data: {context}. Be specific and actionable."}],
+            max_tokens=600)
+        return jsonify({'report': report})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1017,25 +1015,20 @@ def ai_teacher_report():
 @app.route('/api/ai/explain-anomaly', methods=['POST'])
 @teacher_required
 def ai_explain_anomaly():
-    if not ANTHROPIC_API_KEY:
-        return jsonify({'error': 'AI not configured. Please add ANTHROPIC_API_KEY secret.'}), 503
+    if not XAI_API_KEY:
+        return jsonify({'error': 'AI not configured. Please add XAI_API_KEY secret.'}), 503
     data  = request.get_json() or {}
     atype = data.get('type', '')
     desc  = data.get('description', '')
     sev   = data.get('severity', '')
     try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        resp = client.messages.create(
-            model='claude-sonnet-4-5',
-            max_tokens=200,
-            messages=[{'role': 'user', 'content':
-                f"Explain this attendance anomaly in plain English (2 sentences) and give "
-                f"one specific action for the teacher. "
-                f"Type: {atype}, Severity: {sev}, Description: {desc}. "
-                f"Format: EXPLANATION: ... | ACTION: ..."}]
-        )
-        text = resp.content[0].text
+        client = _get_ai_client()
+        text = _ai_complete(client, [{'role': 'user', 'content':
+            f"Explain this attendance anomaly in plain English (2 sentences) and give "
+            f"one specific action for the teacher. "
+            f"Type: {atype}, Severity: {sev}, Description: {desc}. "
+            f"Format: EXPLANATION: ... | ACTION: ..."}],
+            max_tokens=200)
         parts = text.split('|')
         explanation = parts[0].replace('EXPLANATION:', '').strip() if parts else text
         action = parts[1].replace('ACTION:', '').strip() if len(parts) > 1 else ''
