@@ -917,6 +917,67 @@ def delete_student_route(student_id):
     flash('Student deleted.','success')
     return redirect(url_for('all_students'))
 
+@app.route('/teacher/students/sample-csv')
+@teacher_required
+def sample_csv():
+    sample = "roll_no,name,email\n24BCS001,Alice Johnson,alice@example.com\n24BCS002,Bob Smith,bob@example.com\n24BCS003,Carol White,\n"
+    resp = make_response(sample)
+    resp.headers['Content-Type']        = 'text/csv'
+    resp.headers['Content-Disposition'] = 'attachment; filename=sample_students.csv'
+    return resp
+
+
+@app.route('/teacher/students/bulk-import', methods=['POST'])
+@teacher_required
+def bulk_import():
+    f = request.files.get('csv_file')
+    if not f or not f.filename.lower().endswith('.csv'):
+        flash('Please upload a valid CSV file.', 'danger')
+        return redirect(url_for('all_students'))
+
+    try:
+        import csv as csv_mod
+        stream   = f.stream.read().decode('utf-8-sig')
+        reader   = csv_mod.DictReader(stream.splitlines())
+
+        # Normalise headers — strip spaces and lowercase
+        headers  = [h.strip().lower().replace(' ', '_') for h in (reader.fieldnames or [])]
+
+        if 'roll_no' not in headers or 'name' not in headers:
+            flash('CSV must have columns: roll_no, name (and optionally email).', 'danger')
+            return redirect(url_for('all_students'))
+
+        added = skipped = errors = 0
+        for raw_row in reader:
+            row = {h.strip().lower().replace(' ', '_'): v.strip() for h, v in raw_row.items()}
+            roll  = row.get('roll_no', '').strip().upper()
+            name  = row.get('name', '').strip()
+            email = row.get('email', '').strip()
+
+            if not roll or not name:
+                errors += 1
+                continue
+
+            existing = get_student_by_roll(roll)
+            if existing:
+                skipped += 1
+                continue
+
+            get_or_create_student(roll, name, email=email)
+            added += 1
+
+        parts = []
+        if added:   parts.append(f'{added} student{"s" if added!=1 else ""} imported')
+        if skipped: parts.append(f'{skipped} already existed (skipped)')
+        if errors:  parts.append(f'{errors} row{"s" if errors!=1 else ""} skipped (missing roll/name)')
+        flash('. '.join(parts) + '.', 'success' if added else 'warning')
+
+    except Exception as e:
+        flash(f'Import failed: {e}', 'danger')
+
+    return redirect(url_for('all_students'))
+
+
 @app.route('/teacher/students/bulk-delete', methods=['POST'])
 @teacher_required
 def bulk_delete():

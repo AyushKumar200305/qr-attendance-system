@@ -17,7 +17,7 @@
 </div>
 
 <!-- ADD STUDENT -->
-<div class="card" style="margin-bottom:20px;">
+<div class="card" style="margin-bottom:16px;">
   <div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:12px;">➕ Add Student Manually</div>
   <form method="POST" action="{{ url_for('add_student') }}">
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -26,6 +26,34 @@
       <input name="name" placeholder="Full Name" style="flex:2;min-width:140px;"/>
       <input name="email" type="email" placeholder="Email (for reports)" style="flex:2;min-width:160px;"/>
       <button type="submit" class="btn btn-p" style="flex-shrink:0;">Add</button>
+    </div>
+  </form>
+</div>
+
+<!-- BULK CSV IMPORT -->
+<div class="card" style="margin-bottom:20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+    <div style="font-size:.8rem;font-weight:700;color:var(--muted);">📥 Bulk Import via CSV</div>
+    <a href="{{ url_for('sample_csv') }}" class="btn btn-s" style="color:var(--a2);border-color:rgba(6,182,212,.3);font-size:.75rem;">
+      ⬇ Download Sample CSV
+    </a>
+  </div>
+  <form method="POST" action="{{ url_for('bulk_import') }}" enctype="multipart/form-data" id="import-form">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <label id="csv-label" style="flex:1;min-width:220px;display:flex;align-items:center;gap:10px;
+             background:var(--surf2);border:1px dashed var(--border);border-radius:8px;
+             padding:10px 14px;cursor:pointer;transition:border-color .2s;"
+             onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:1.3rem;">📂</span>
+        <span id="csv-label-text" style="font-size:.82rem;color:var(--muted);">Click to choose a CSV file…</span>
+        <input type="file" name="csv_file" id="csv-input" accept=".csv"
+               style="display:none;" onchange="updateLabel(this)"/>
+      </label>
+      <button type="submit" class="btn btn-p" style="flex-shrink:0;" id="import-btn" disabled>Import Students</button>
+    </div>
+    <div style="margin-top:8px;font-size:.74rem;color:var(--muted);">
+      CSV must have columns: <code>roll_no</code>, <code>name</code> (required) and <code>email</code> (optional).
+      Existing roll numbers are skipped automatically.
     </div>
   </form>
 </div>
@@ -179,6 +207,19 @@ function bulkDelete() {
     if (d.ok) location.reload();
     else alert('Error: ' + d.error);
   });
+}
+
+function updateLabel(input) {
+  const btn = document.getElementById('import-btn');
+  if (input.files && input.files[0]) {
+    document.getElementById('csv-label-text').textContent = input.files[0].name;
+    document.getElementById('csv-label-text').style.color = 'var(--text)';
+    btn.disabled = false;
+  } else {
+    document.getElementById('csv-label-text').textContent = 'Click to choose a CSV file…';
+    document.getElementById('csv-label-text').style.color = 'var(--muted)';
+    btn.disabled = true;
+  }
 }
 
 // Init count
