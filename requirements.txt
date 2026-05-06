@@ -28,3 +28,15 @@ reportlab
 requests
 openai
 groq
+anthropic
+APScheduler
+flask
+groq
+gunicorn
+matplotlib
+openai
+Pillow
+python-dotenv
+qrcode[pil]
+reportlab
+requests
