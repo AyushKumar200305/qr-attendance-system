@@ -2,161 +2,127 @@
 {% block title %}QR Attendance System{% endblock %}
 {% block content %}
 
-<div style="text-align:center;padding:44px 0 32px;">
-  <div style="font-size:.82rem;color:var(--accent);letter-spacing:3px;font-weight:700;margin-bottom:12px;">
-    ATTENDANCE SYSTEM
+<div style="padding:40px 0 28px;">
+  <div style="font-size:.72rem;color:var(--muted);letter-spacing:2px;font-weight:600;margin-bottom:10px;text-transform:uppercase;">
+    Classroom Attendance System
   </div>
-  <h1 style="font-size:3rem;font-weight:900;margin-bottom:12px;">
-    QR <span style="color:var(--accent);">Attendance</span>
-  </h1>
-  <p style="color:var(--muted);font-size:.95rem;">{{ today }}</p>
+  <h1 style="font-size:2rem;font-weight:700;margin-bottom:6px;letter-spacing:-.4px;">QR Attendance</h1>
+  <p style="color:var(--muted);font-size:.85rem;">{{ today }}</p>
 </div>
 
-<!-- TWO COLUMN LAYOUT -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
 
-  <!-- LEFT — STUDENT -->
-  <div class="card" style="padding:28px;">
-    <div style="font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;
-         letter-spacing:.5px;margin-bottom:18px;">🎓 Student</div>
-
+  <!-- STUDENT -->
+  <div class="card" style="padding:20px;">
+    <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">Student</div>
     <a href="{{ url_for('my_stats') }}"
-       style="display:flex;align-items:center;gap:16px;padding:18px 20px;
-              background:var(--surf2);border:1px solid var(--border);border-radius:12px;
-              text-decoration:none;color:var(--text);transition:all .15s;"
-       onmouseover="this.style.borderColor='var(--a2)';this.style.background='rgba(6,182,212,.08)'"
+       style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;
+              background:var(--surf2);border:1px solid var(--border);border-radius:var(--radius);
+              text-decoration:none;color:var(--text);transition:all .12s;"
+       onmouseover="this.style.borderColor='var(--accent)';this.style.background='rgba(47,129,247,.05)'"
        onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surf2)'">
-      <span style="font-size:2rem;">📊</span>
       <div>
-        <div style="font-weight:700;font-size:1rem;">My Attendance Stats</div>
-        <div style="font-size:.83rem;color:var(--muted);margin-top:2px;">Check percentage and detention risk</div>
+        <div style="font-weight:600;font-size:.9rem;margin-bottom:2px;">My Attendance</div>
+        <div style="font-size:.78rem;color:var(--muted);">View percentage and risk status</div>
       </div>
-      <span style="margin-left:auto;color:var(--muted);font-size:1rem;">→</span>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="color:var(--muted);flex-shrink:0;"><path d="M6 12l4-4-4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
   </div>
 
-  <!-- RIGHT — TEACHER -->
-  <div class="card" style="padding:28px;">
-    <div style="font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;
-         letter-spacing:.5px;margin-bottom:18px;">👩‍🏫 Teacher</div>
-
-    <div style="display:flex;flex-direction:column;gap:10px;">
+  <!-- TEACHER -->
+  <div class="card" style="padding:20px;">
+    <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">Teacher</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
 
       <a href="{{ url_for('teacher_gate') }}"
-         style="display:flex;align-items:center;gap:16px;padding:18px 20px;
-                background:var(--surf2);border:1px solid var(--border);border-radius:12px;
-                text-decoration:none;color:var(--text);transition:all .15s;"
-         onmouseover="this.style.borderColor='var(--accent)';this.style.background='rgba(99,102,241,.08)'"
+         style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+                background:var(--surf2);border:1px solid var(--border);border-radius:var(--radius);
+                text-decoration:none;color:var(--text);transition:all .12s;"
+         onmouseover="this.style.borderColor='var(--accent)';this.style.background='rgba(47,129,247,.05)'"
          onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surf2)'">
-        <span style="font-size:2rem;">🔑</span>
         <div>
-          <div style="font-weight:700;font-size:1rem;">Teacher Login</div>
-          <div style="font-size:.83rem;color:var(--muted);margin-top:2px;">Enter PIN to access panel</div>
+          <div style="font-weight:600;font-size:.87rem;margin-bottom:1px;">Teacher Login</div>
+          <div style="font-size:.76rem;color:var(--muted);">Enter PIN to access panel</div>
         </div>
-        <span style="margin-left:auto;color:var(--muted);font-size:1rem;">→</span>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="color:var(--muted);flex-shrink:0;"><path d="M6 12l4-4-4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
 
       {% if session.get('teacher_ok') %}
-
       <a href="{{ url_for('teacher_dashboard') }}"
-         style="display:flex;align-items:center;gap:16px;padding:18px 20px;
-                background:var(--surf2);border:1px solid var(--border);border-radius:12px;
-                text-decoration:none;color:var(--text);transition:all .15s;"
-         onmouseover="this.style.borderColor='var(--accent)';this.style.background='rgba(99,102,241,.08)'"
+         style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+                background:var(--surf2);border:1px solid var(--border);border-radius:var(--radius);
+                text-decoration:none;color:var(--text);transition:all .12s;"
+         onmouseover="this.style.borderColor='var(--accent)';this.style.background='rgba(47,129,247,.05)'"
          onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surf2)'">
-        <span style="font-size:2rem;">🏠</span>
         <div>
-          <div style="font-weight:700;font-size:1rem;">Dashboard</div>
-          <div style="font-size:.83rem;color:var(--muted);margin-top:2px;">Overview, insights, sessions</div>
+          <div style="font-weight:600;font-size:.87rem;margin-bottom:1px;">Dashboard</div>
+          <div style="font-size:.76rem;color:var(--muted);">Sessions, insights, reports</div>
         </div>
-        <span style="margin-left:auto;color:var(--muted);font-size:1rem;">→</span>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="color:var(--muted);flex-shrink:0;"><path d="M6 12l4-4-4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
-
       <a href="{{ url_for('generate_qr') }}"
-         style="display:flex;align-items:center;gap:16px;padding:18px 20px;
-                background:var(--surf2);border:1px solid var(--border);border-radius:12px;
-                text-decoration:none;color:var(--text);transition:all .15s;"
-         onmouseover="this.style.borderColor='var(--ok)';this.style.background='rgba(16,185,129,.08)'"
+         style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+                background:var(--surf2);border:1px solid var(--border);border-radius:var(--radius);
+                text-decoration:none;color:var(--text);transition:all .12s;"
+         onmouseover="this.style.borderColor='var(--ok)';this.style.background='rgba(63,185,80,.05)'"
          onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surf2)'">
-        <span style="font-size:2rem;">🔲</span>
         <div>
-          <div style="font-weight:700;font-size:1rem;">Generate QR Code</div>
-          <div style="font-size:.83rem;color:var(--muted);margin-top:2px;">Create QR for today's class</div>
+          <div style="font-weight:600;font-size:.87rem;margin-bottom:1px;">Generate QR Code</div>
+          <div style="font-size:.76rem;color:var(--muted);">Create a QR for today's class</div>
         </div>
-        <span style="margin-left:auto;color:var(--muted);font-size:1rem;">→</span>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="color:var(--muted);flex-shrink:0;"><path d="M6 12l4-4-4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
-
       <a href="{{ url_for('all_students') }}"
-         style="display:flex;align-items:center;gap:16px;padding:18px 20px;
-                background:var(--surf2);border:1px solid var(--border);border-radius:12px;
-                text-decoration:none;color:var(--text);transition:all .15s;"
-         onmouseover="this.style.borderColor='var(--a2)';this.style.background='rgba(6,182,212,.08)'"
+         style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+                background:var(--surf2);border:1px solid var(--border);border-radius:var(--radius);
+                text-decoration:none;color:var(--text);transition:all .12s;"
+         onmouseover="this.style.borderColor='var(--a2)';this.style.background='rgba(88,166,255,.05)'"
          onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surf2)'">
-        <span style="font-size:2rem;">👥</span>
         <div>
-          <div style="font-weight:700;font-size:1rem;">All Students</div>
-          <div style="font-size:.83rem;color:var(--muted);margin-top:2px;">View reports and export CSV</div>
+          <div style="font-weight:600;font-size:.87rem;margin-bottom:1px;">All Students</div>
+          <div style="font-size:.76rem;color:var(--muted);">View records and export CSV</div>
         </div>
-        <span style="margin-left:auto;color:var(--muted);font-size:1rem;">→</span>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="color:var(--muted);flex-shrink:0;"><path d="M6 12l4-4-4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
-
-      <a href="{{ url_for('view_anomalies') }}"
-         style="display:flex;align-items:center;gap:16px;padding:18px 20px;
-                background:var(--surf2);border:1px solid var(--border);border-radius:12px;
-                text-decoration:none;color:var(--text);transition:all .15s;"
-         onmouseover="this.style.borderColor='var(--bad)';this.style.background='rgba(239,68,68,.08)'"
-         onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surf2)'">
-        <span style="font-size:2rem;">🚨</span>
-        <div>
-          <div style="font-weight:700;font-size:1rem;">Security Alerts</div>
-          <div style="font-size:.83rem;color:var(--muted);margin-top:2px;">AI-detected suspicious scans</div>
-        </div>
-        <span style="margin-left:auto;color:var(--muted);font-size:1rem;">→</span>
-      </a>
-
       <a href="{{ url_for('export_csv', subject='all') }}"
-         style="display:flex;align-items:center;gap:16px;padding:18px 20px;
-                background:var(--surf2);border:1px solid var(--border);border-radius:12px;
-                text-decoration:none;color:var(--text);transition:all .15s;"
-         onmouseover="this.style.borderColor='var(--warn)';this.style.background='rgba(245,158,11,.08)'"
+         style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+                background:var(--surf2);border:1px solid var(--border);border-radius:var(--radius);
+                text-decoration:none;color:var(--text);transition:all .12s;"
+         onmouseover="this.style.borderColor='var(--warn)';this.style.background='rgba(210,153,34,.05)'"
          onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surf2)'">
-        <span style="font-size:2rem;">⬇️</span>
         <div>
-          <div style="font-weight:700;font-size:1rem;">Export Attendance</div>
-          <div style="font-size:.83rem;color:var(--muted);margin-top:2px;">Download full CSV file</div>
+          <div style="font-weight:600;font-size:.87rem;margin-bottom:1px;">Export Attendance</div>
+          <div style="font-size:.76rem;color:var(--muted);">Download full CSV report</div>
         </div>
-        <span style="margin-left:auto;color:var(--muted);font-size:1rem;">→</span>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="color:var(--muted);flex-shrink:0;"><path d="M6 12l4-4-4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
-
       <a href="{{ url_for('teacher_logout') }}"
-         style="display:flex;align-items:center;gap:16px;padding:18px 20px;
-                background:var(--surf2);border:1px solid var(--border);border-radius:12px;
-                text-decoration:none;color:var(--muted);transition:all .15s;"
-         onmouseover="this.style.borderColor='var(--muted)';this.style.color='var(--text)'"
+         style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+                background:var(--surf2);border:1px solid var(--border);border-radius:var(--radius);
+                text-decoration:none;color:var(--muted);transition:all .12s;"
+         onmouseover="this.style.borderColor='rgba(248,81,73,.3)';this.style.color='var(--bad)'"
          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-        <span style="font-size:2rem;">🔒</span>
         <div>
-          <div style="font-weight:700;font-size:1rem;">Lock / Logout</div>
-          <div style="font-size:.83rem;margin-top:2px;">End teacher session</div>
+          <div style="font-weight:600;font-size:.87rem;margin-bottom:1px;">Lock Session</div>
+          <div style="font-size:.76rem;">End teacher session</div>
         </div>
-        <span style="margin-left:auto;font-size:1rem;">→</span>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;"><path d="M6 12l4-4-4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
-
       {% endif %}
+
     </div>
   </div>
 </div>
 
-<!-- SUBJECTS ROW -->
-<div class="card" style="padding:24px;">
-  <div style="font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;
-       letter-spacing:.5px;margin-bottom:16px;">📚 Subjects</div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-    {% for code,name in subjects.items() %}
-    <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;
-         background:var(--surf2);border-radius:10px;">
-      <span class="b b-{{ code }}" style="font-size:.85rem;padding:5px 12px;">{{ code }}</span>
-      <span style="font-size:.95rem;font-weight:600;">{{ name }}</span>
+<!-- SUBJECTS -->
+<div class="card" style="padding:20px;">
+  <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">Subjects</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+    {% for code, name in subjects.items() %}
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;
+         background:var(--surf2);border:1px solid var(--border);border-radius:var(--radius);">
+      <span class="b b-{{ code }}" style="padding:3px 8px;font-size:.72rem;">{{ code }}</span>
+      <span style="font-size:.85rem;font-weight:500;color:var(--sub);">{{ name }}</span>
     </div>
     {% endfor %}
   </div>
