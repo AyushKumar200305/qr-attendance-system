@@ -4,9 +4,7 @@ Security: device fingerprinting, IP tracking, risk scoring, PIN rate-limiting
 AI/ML:    anomaly detection, detention prediction, smart insights
 Features: PDF reports, weekly email, subject management, analytics
 """
-import os, io, base64, socket, csv, smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import os, io, base64, socket, csv, requests
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 load_dotenv()
@@ -41,11 +39,9 @@ QR_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'qrcodes')
 os.makedirs(QR_FOLDER, exist_ok=True)
 
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
-SMTP_SERVER   = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
-SMTP_PORT     = int(os.environ.get('SMTP_PORT', '587'))
-SMTP_USER     = os.environ.get('SMTP_USER', '')
-SMTP_PASS     = os.environ.get('SMTP_PASS', '')
-SMTP_FROM     = os.environ.get('SMTP_FROM', SMTP_USER)
+MAILGUN_API_KEY = os.environ.get('MAILGUN_API_KEY', '')
+MAILGUN_DOMAIN  = os.environ.get('MAILGUN_DOMAIN', '')
+MAILGUN_FROM    = os.environ.get('MAILGUN_FROM', f'attendance@{MAILGUN_DOMAIN}')
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def get_local_ip():
@@ -83,20 +79,24 @@ def _get_ai_client():
         return None
 
 def _send_email(to_email, subject, html_body):
-    """Send an HTML email via SMTP. Returns (ok, error_msg)."""
-    if not SMTP_USER or not SMTP_PASS:
-        return False, 'SMTP not configured. Set SMTP_USER and SMTP_PASS secrets.'
+    """Send an HTML email via Mailgun HTTP API. Returns (ok, error_msg)."""
+    if not MAILGUN_API_KEY or not MAILGUN_DOMAIN:
+        return False, 'Mailgun not configured. Set MAILGUN_API_KEY and MAILGUN_DOMAIN secrets.'
     try:
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From']    = SMTP_FROM or SMTP_USER
-        msg['To']      = to_email
-        msg.attach(MIMEText(html_body, 'html'))
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.sendmail(SMTP_FROM or SMTP_USER, to_email, msg.as_string())
-        return True, ''
+        resp = requests.post(
+            f'https://api.mailgun.net/v3/{MAILGUN_DOMAIN}/messages',
+            auth=('api', MAILGUN_API_KEY),
+            data={
+                'from':    MAILGUN_FROM,
+                'to':      to_email,
+                'subject': subject,
+                'html':    html_body,
+            },
+            timeout=15
+        )
+        if resp.status_code == 200 or resp.status_code == 201:
+            return True, ''
+        return False, f'Mailgun error {resp.status_code}: {resp.text}'
     except Exception as e:
         return False, str(e)
 
@@ -452,8 +452,8 @@ def download_student_report(roll):
 @app.route('/teacher/send-weekly-reports', methods=['POST'])
 @teacher_required
 def send_weekly_reports():
-    if not SMTP_USER or not SMTP_PASS:
-        flash('Email not configured. Please set SMTP_USER and SMTP_PASS secrets.', 'danger')
+    if not MAILGUN_API_KEY or not MAILGUN_DOMAIN:
+        flash('Email not configured. Please set MAILGUN_API_KEY and MAILGUN_DOMAIN secrets.', 'danger')
         return redirect(url_for('teacher_dashboard'))
 
     conn = get_conn()
@@ -536,7 +536,7 @@ def send_weekly_reports():
     if sent:
         flash(f'Weekly reports sent to {sent} student(s).', 'success')
     if failed:
-        flash(f'{failed} report(s) failed. Check SMTP settings.', 'danger')
+        flash(f'{failed} report(s) failed. Check Mailgun settings.', 'danger')
     if not students:
         flash('No students with email addresses found.', 'danger')
     return redirect(url_for('teacher_dashboard'))
@@ -617,7 +617,7 @@ def teacher_dashboard():
     heatmap   = get_attendance_heatmap(14)
     anomalies = get_anomalies(5)
     subjects  = get_all_subjects()
-    has_smtp  = bool(SMTP_USER and SMTP_PASS)
+    has_smtp  = bool(MAILGUN_API_KEY and MAILGUN_DOMAIN)
     return render_template('teacher_dashboard.html',
         sessions=sessions, subjects=subjects,
         teacher=get_teacher(), today=now_str(),
