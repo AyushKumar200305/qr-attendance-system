@@ -5,6 +5,11 @@
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <h1>{{ sess.label }}</h1>
     <span class="b b-{{ sess.subject }}">{{ subjects[sess.subject] }}</span>
+    {% if sess.year or sess.branch %}
+    <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);border-radius:12px;padding:3px 10px;font-size:.75rem;font-weight:700;color:var(--accent);">
+      🎓 {{ sess.year }}{% if sess.year and sess.branch %} · {% endif %}{{ sess.branch }}
+    </span>
+    {% endif %}
     {% if active %}<span style="color:var(--ok);font-size:.8rem;font-weight:700;">● Live</span>
     {% else %}<span style="color:var(--muted);font-size:.8rem;">● Closed</span>{% endif %}
   </div>
@@ -16,7 +21,8 @@
 
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
   <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-s">← Dashboard</a>
-  <a href="{{ url_for('export_csv', subject=sess.subject) }}" class="btn btn-s">⬇ Export CSV</a>
+  <a href="{{ url_for('export_csv', subject=sess.subject) }}{% if sess.year or sess.branch %}?year={{ sess.year|urlencode }}&branch={{ sess.branch|urlencode }}{% endif %}"
+     class="btn btn-s">⬇ Export CSV{% if sess.year or sess.branch %} ({{ sess.year }}{% if sess.year and sess.branch %} · {% endif %}{{ sess.branch }}){% endif %}</a>
   {% if active %}
   <form method="POST" action="{{ url_for('deactivate_sess', sess_id=sess.id) }}" style="display:inline;">
     <button class="btn btn-s" style="color:var(--warn);border-color:var(--warn);"
@@ -35,7 +41,7 @@
   {% if rows %}
   <table class="tbl">
     <thead>
-      <tr><th>#</th><th>Roll No</th><th>Name</th><th>Time</th><th>IP</th><th>Risk</th><th>Action</th></tr>
+      <tr><th>#</th><th>Roll No</th><th>Name</th><th>Year</th><th>Branch</th><th>Time</th><th>IP</th><th>Risk</th><th>Action</th></tr>
     </thead>
     <tbody>
     {% for r in rows %}
@@ -43,6 +49,8 @@
       <td style="color:var(--muted);font-size:.78rem;">{{ loop.index }}</td>
       <td><code style="font-family:var(--mono);font-size:.82rem;color:var(--a2);">{{ r.roll_no }}</code></td>
       <td style="font-size:.85rem;">{{ r.name }}</td>
+      <td style="font-size:.75rem;color:var(--muted);">{{ r.year or '—' }}</td>
+      <td style="font-size:.75rem;color:var(--muted);">{{ r.branch or '—' }}</td>
       <td style="font-size:.75rem;color:var(--muted);">{{ r.marked_at[11:16] }}</td>
       <td style="font-size:.72rem;color:var(--muted);">{{ r.ip_address }}</td>
       <td>

@@ -25,7 +25,8 @@ from database import (
     get_all_subjects, add_subject, delete_subject,
     bulk_delete_students, get_advanced_analytics, delete_student,
     get_setting, set_setting, get_email_schedule,
-    get_announcements, add_announcement, delete_announcement
+    get_announcements, add_announcement, delete_announcement,
+    YEARS, BRANCHES
 )
 from ml_engine import (
     calculate_risk_score, predict_detention_risk,
@@ -95,15 +96,29 @@ def _ai_complete(client, messages, system=None, max_tokens=400):
     )
     return resp.choices[0].message.content
 
-def _send_class_start_emails(subject_name, label, att_url, expires_label, teacher_name):
-    """Send class-started notification to all students with email addresses."""
+def _send_class_start_emails(subject_name, label, att_url, expires_label, teacher_name,
+                             year='', branch=''):
+    """Send class-started notification to students filtered by year and branch."""
     if not GMAIL_USER or not GMAIL_APP_PASS:
         return 0, 0
     conn = get_conn()
-    students = conn.execute(
-        "SELECT name, email FROM students WHERE email != '' AND email IS NOT NULL"
-    ).fetchall()
+    query = "SELECT name, email FROM students WHERE email != '' AND email IS NOT NULL"
+    params = []
+    if year:
+        query += " AND year=?"; params.append(year)
+    if branch:
+        query += " AND branch=?"; params.append(branch)
+    students = conn.execute(query, params).fetchall()
     conn.close()
+
+    year_branch_row = ''
+    if year or branch:
+        yb_label = ' · '.join(filter(None, [year, branch]))
+        year_branch_row = f"""
+            <tr><td style="padding:14px 18px;border-bottom:1px solid #e5e7eb;">
+              <span style="font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600;">For</span><br>
+              <span style="font-size:15px;color:#111827;font-weight:700;">{yb_label}</span>
+            </td></tr>"""
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -125,6 +140,7 @@ def _send_class_start_emails(subject_name, label, att_url, expires_label, teache
               <span style="font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600;">Subject</span><br>
               <span style="font-size:15px;color:#111827;font-weight:700;">{subject_name}</span>
             </td></tr>
+            {year_branch_row}
             <tr><td style="padding:14px 18px;border-bottom:1px solid #e5e7eb;">
               <span style="font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600;">Session</span><br>
               <span style="font-size:15px;color:#111827;font-weight:700;">{label}</span>
@@ -538,6 +554,8 @@ def attend(token):
     return render_template('attend_form.html',
         token=token, subject=subject,
         subject_name=subject_name, label=label,
+        sess_year=sess_row.get('year', ''),
+        sess_branch=sess_row.get('branch', ''),
         today=now_str())
 
 
@@ -915,9 +933,17 @@ def generate_qr():
         ip_lock    = request.form.get('ip_lock','').strip()
         max_scans  = request.form.get('max_scans','999').strip()
         notes      = request.form.get('notes','').strip()
+        year       = request.form.get('year','').strip()
+        branch     = request.form.get('branch','').strip()
 
         if subject not in subjects:
             flash('Select a valid subject.','danger')
+            return redirect(url_for('generate_qr'))
+        if not year:
+            flash('Please select a year.','danger')
+            return redirect(url_for('generate_qr'))
+        if not branch:
+            flash('Please select a branch.','danger')
             return redirect(url_for('generate_qr'))
 
         try:
@@ -938,7 +964,8 @@ def generate_qr():
             token, subject, label or subjects[subject],
             expires_at, session.get('teacher_name','Teacher'),
             allowed_ip_prefix=ip_lock,
-            max_scans=max_scans, notes=notes)
+            max_scans=max_scans, notes=notes,
+            year=year, branch=branch)
 
         dev_domain = os.environ.get('REPLIT_DEV_DOMAIN', '')
         att_url = (f"https://{dev_domain}/attend/{token}" if dev_domain
@@ -948,13 +975,14 @@ def generate_qr():
         b64 = base64.b64encode(buf.read()).decode()
         img.save(os.path.join(QR_FOLDER, f'{token}.png'))
 
-        # Send class-start notification emails in background thread
+        # Send class-start notification emails in background thread (filtered by year+branch)
         subject_name = subjects[subject]
         teacher_name = session.get('teacher_name', 'Teacher')
         import threading
         threading.Thread(
             target=_send_class_start_emails,
             args=(subject_name, label or subject_name, att_url, expiry_label, teacher_name),
+            kwargs={'year': year, 'branch': branch},
             daemon=True
         ).start()
 
@@ -965,11 +993,13 @@ def generate_qr():
             b64=b64, session_id=sid,
             expiry_label=expiry_label,
             att_url=att_url, local_ip=local_ip,
-            notes=notes, max_scans=max_scans)
+            notes=notes, max_scans=max_scans,
+            year=year, branch=branch)
 
     return render_template('generate_qr.html',
         subjects=subjects, qr_data=qr_data,
-        today=now_str(), local_ip=local_ip)
+        today=now_str(), local_ip=local_ip,
+        years=YEARS, branches=BRANCHES)
 
 
 # ── SESSION DETAIL ────────────────────────────────────────────────────────────
@@ -1031,24 +1061,34 @@ def add_manual_route():
 @app.route('/teacher/students')
 @teacher_required
 def all_students():
-    data      = get_all_students_report()
+    year_filter   = request.args.get('year', '')
+    branch_filter = request.args.get('branch', '')
+    data      = get_all_students_report(year_filter=year_filter, branch_filter=branch_filter)
     risk_list = get_all_students_risk()
     subjects  = get_all_subjects()
     return render_template('all_students.html',
         data=data, risk_list=risk_list,
-        subjects=subjects, today=now_str())
+        subjects=subjects, today=now_str(),
+        years=YEARS, branches=BRANCHES,
+        year_filter=year_filter, branch_filter=branch_filter)
 
 @app.route('/teacher/students/add', methods=['POST'])
 @teacher_required
 def add_student():
-    roll  = request.form.get('roll_no','').strip().upper()
-    name  = request.form.get('name','').strip()
-    email = request.form.get('email','').strip()
-    if roll and name:
-        get_or_create_student(roll, name, email=email)
-        flash(f'{roll} — {name} added.','success')
-    else:
+    roll   = request.form.get('roll_no','').strip().upper()
+    name   = request.form.get('name','').strip()
+    email  = request.form.get('email','').strip()
+    year   = request.form.get('year','').strip()
+    branch = request.form.get('branch','').strip()
+    if not roll or not name:
         flash('Enter both roll number and name.','danger')
+    elif not year:
+        flash('Year is required.','danger')
+    elif not branch:
+        flash('Branch is required.','danger')
+    else:
+        get_or_create_student(roll, name, email=email, year=year, branch=branch)
+        flash(f'{roll} — {name} ({year}, {branch}) added.','success')
     return redirect(url_for('all_students'))
 
 @app.route('/teacher/students/delete/<int:student_id>', methods=['POST'])
@@ -1061,7 +1101,10 @@ def delete_student_route(student_id):
 @app.route('/teacher/students/sample-csv')
 @teacher_required
 def sample_csv():
-    sample = "roll_no,name,email\n24BCS001,Alice Johnson,alice@example.com\n24BCS002,Bob Smith,bob@example.com\n24BCS003,Carol White,\n"
+    sample = ("roll_no,name,email,year,branch\n"
+              "24BCS001,Alice Johnson,alice@example.com,2nd Year,CSE\n"
+              "24BCS002,Bob Smith,bob@example.com,2nd Year,IT\n"
+              "24BCS003,Carol White,,1st Year,ECE\n")
     resp = make_response(sample)
     resp.headers['Content-Type']        = 'text/csv'
     resp.headers['Content-Disposition'] = 'attachment; filename=sample_students.csv'
@@ -1091,9 +1134,11 @@ def bulk_import():
         added = skipped = errors = 0
         for raw_row in reader:
             row = {h.strip().lower().replace(' ', '_'): v.strip() for h, v in raw_row.items()}
-            roll  = row.get('roll_no', '').strip().upper()
-            name  = row.get('name', '').strip()
-            email = row.get('email', '').strip()
+            roll   = row.get('roll_no', '').strip().upper()
+            name   = row.get('name', '').strip()
+            email  = row.get('email', '').strip()
+            year   = row.get('year', '').strip()
+            branch = row.get('branch', '').strip()
 
             if not roll or not name:
                 errors += 1
@@ -1104,7 +1149,7 @@ def bulk_import():
                 skipped += 1
                 continue
 
-            get_or_create_student(roll, name, email=email)
+            get_or_create_student(roll, name, email=email, year=year, branch=branch)
             added += 1
 
         parts = []
@@ -1140,13 +1185,13 @@ def bulk_export():
     subjects = get_all_subjects()
     buf = io.StringIO()
     w   = csv.writer(buf)
-    hdr = ['Roll No', 'Name', 'Email'] + [f'{c} %' for c in subjects] + ['Overall %']
+    hdr = ['Roll No', 'Name', 'Email', 'Year', 'Branch'] + [f'{c} %' for c in subjects] + ['Overall %']
     w.writerow(hdr)
     for d in report:
         s    = d['student']
         pcts = [sm['pct'] for sm in d['summary']]
         avg  = round(sum(pcts)/len(pcts), 1) if pcts else 0
-        row  = [s['roll_no'], s['name'], s.get('email','')]
+        row  = [s['roll_no'], s['name'], s.get('email',''), s.get('year',''), s.get('branch','')]
         row += [f"{sm['pct']}%" for sm in d['summary']]
         row += [f"{avg}%"]
         w.writerow(row)
@@ -1199,32 +1244,45 @@ def analytics():
 @app.route('/teacher/export/<subject>')
 @teacher_required
 def export_csv(subject):
-    subjects = get_all_subjects()
+    subjects      = get_all_subjects()
+    year_filter   = request.args.get('year', '')
+    branch_filter = request.args.get('branch', '')
     if subject not in subjects and subject != 'all':
         flash('Invalid subject.','danger')
         return redirect(url_for('all_students'))
     conn = get_conn()
+    params = []
+    yb_conditions = ''
+    if year_filter:
+        yb_conditions += " AND s.year=?"; params.append(year_filter)
+    if branch_filter:
+        yb_conditions += " AND s.branch=?"; params.append(branch_filter)
     if subject == 'all':
-        rows = conn.execute("""
-            SELECT s.roll_no, s.name, s.email, a.subject, a.marked_at, qs.label
+        rows = conn.execute(f"""
+            SELECT s.roll_no, s.name, s.email, s.year, s.branch,
+                   a.subject, a.marked_at, qs.label
             FROM attendance a
             JOIN students s ON s.id=a.student_id
             JOIN qr_sessions qs ON qs.id=a.session_id
+            WHERE 1=1 {yb_conditions}
             ORDER BY s.roll_no, a.subject, a.marked_at
-        """).fetchall()
-        filename = 'attendance_all.csv'
-        headers  = ['Roll No','Name','Email','Subject','Date/Time','Session']
+        """, params).fetchall()
+        yb_suffix = '_' + '_'.join(filter(None, [year_filter.replace(' ',''), branch_filter])) if (year_filter or branch_filter) else ''
+        filename = f'attendance_all{yb_suffix}.csv'
+        headers  = ['Roll No','Name','Email','Year','Branch','Subject','Date/Time','Session']
     else:
-        rows = conn.execute("""
-            SELECT s.roll_no, s.name, s.email, a.marked_at, qs.label
+        params_subj = [subject] + params
+        rows = conn.execute(f"""
+            SELECT s.roll_no, s.name, s.email, s.year, s.branch, a.marked_at, qs.label
             FROM attendance a
             JOIN students s ON s.id=a.student_id
             JOIN qr_sessions qs ON qs.id=a.session_id
-            WHERE a.subject=?
+            WHERE a.subject=? {yb_conditions}
             ORDER BY s.roll_no, a.marked_at
-        """, (subject,)).fetchall()
-        filename = f'attendance_{subject}.csv'
-        headers  = ['Roll No','Name','Email','Date/Time','Session']
+        """, params_subj).fetchall()
+        yb_suffix = '_' + '_'.join(filter(None, [year_filter.replace(' ',''), branch_filter])) if (year_filter or branch_filter) else ''
+        filename = f'attendance_{subject}{yb_suffix}.csv'
+        headers  = ['Roll No','Name','Email','Year','Branch','Date/Time','Session']
     conn.close()
     buf = io.StringIO()
     w   = csv.writer(buf)

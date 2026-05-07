@@ -6,15 +6,56 @@
   <p>Subject-wise attendance with AI risk prediction.</p>
 </div>
 
-<!-- EXPORT -->
-<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+<!-- EXPORT BUTTONS -->
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
   {% for code,name in subjects.items() %}
-  <a href="{{ url_for('export_csv', subject=code) }}" class="btn btn-s">⬇ {{ code }} CSV</a>
+  <a href="{{ url_for('export_csv', subject=code) }}{% if year_filter or branch_filter %}?year={{ year_filter }}&branch={{ branch_filter }}{% endif %}"
+     class="btn btn-s">⬇ {{ code }} CSV</a>
   {% endfor %}
-  <a href="{{ url_for('export_csv', subject='all') }}" class="btn btn-s btn-p">⬇ All CSV</a>
-  <button id="bulk-export-btn" onclick="bulkExport()" class="btn btn-s" style="display:none;color:var(--a2);border-color:var(--a2);">⬇ Export Selected</button>
+  <a href="{{ url_for('export_csv', subject='all') }}{% if year_filter or branch_filter %}?year={{ year_filter }}&branch={{ branch_filter }}{% endif %}"
+     class="btn btn-s btn-p">⬇ All CSV</a>
+  <button id="bulk-export-btn" onclick="bulkExport()" class="btn btn-s" style="display:none;color:var(--a2);border-color:rgba(6,182,212,.3);">⬇ Export Selected</button>
   <button id="bulk-delete-btn" onclick="bulkDelete()" class="btn btn-s btn-bad" style="display:none;">🗑 Delete Selected</button>
 </div>
+
+<!-- YEAR / BRANCH FILTER -->
+<form method="GET" action="{{ url_for('all_students') }}" style="margin-bottom:16px;">
+  <div class="card" style="padding:14px 18px;">
+    <div style="font-size:.78rem;font-weight:700;color:var(--muted);margin-bottom:10px;">🎓 Filter by Year &amp; Branch</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="fg" style="min-width:160px;flex:1;margin:0;">
+        <label class="lbl" style="margin-bottom:4px;">Year</label>
+        <select name="year">
+          <option value="">All Years</option>
+          {% for y in years %}
+          <option value="{{ y }}" {% if year_filter==y %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="fg" style="min-width:140px;flex:1;margin:0;">
+        <label class="lbl" style="margin-bottom:4px;">Branch</label>
+        <select name="branch">
+          <option value="">All Branches</option>
+          {% for b in branches %}
+          <option value="{{ b }}" {% if branch_filter==b %}selected{% endif %}>{{ b }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-p" style="flex-shrink:0;">Filter</button>
+      {% if year_filter or branch_filter %}
+      <a href="{{ url_for('all_students') }}" class="btn btn-s" style="flex-shrink:0;">✕ Clear</a>
+      {% endif %}
+    </div>
+    {% if year_filter or branch_filter %}
+    <div style="margin-top:8px;font-size:.78rem;color:var(--accent);">
+      Showing: {% if year_filter %}<strong>{{ year_filter }}</strong>{% endif %}
+      {% if year_filter and branch_filter %} · {% endif %}
+      {% if branch_filter %}<strong>{{ branch_filter }}</strong>{% endif %}
+      &nbsp;·&nbsp; {{ data|length }} student(s)
+    </div>
+    {% endif %}
+  </div>
+</form>
 
 <!-- ADD STUDENT -->
 <div class="card" style="margin-bottom:16px;">
@@ -24,7 +65,19 @@
       <input name="roll_no" placeholder="Roll No e.g. 24BCS001"
              style="flex:1;min-width:120px;" oninput="this.value=this.value.toUpperCase()"/>
       <input name="name" placeholder="Full Name" style="flex:2;min-width:140px;"/>
-      <input name="email" type="email" placeholder="Email (for reports)" style="flex:2;min-width:160px;"/>
+      <input name="email" type="email" placeholder="Email (optional)" style="flex:2;min-width:160px;"/>
+      <select name="year" required style="flex:1;min-width:130px;">
+        <option value="">Year *</option>
+        {% for y in years %}
+        <option value="{{ y }}" {% if year_filter==y %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+      <select name="branch" required style="flex:1;min-width:100px;">
+        <option value="">Branch *</option>
+        {% for b in branches %}
+        <option value="{{ b }}" {% if branch_filter==b %}selected{% endif %}>{{ b }}</option>
+        {% endfor %}
+      </select>
       <button type="submit" class="btn btn-p" style="flex-shrink:0;">Add</button>
     </div>
   </form>
@@ -52,8 +105,7 @@
       <button type="submit" class="btn btn-p" style="flex-shrink:0;" id="import-btn" disabled>Import Students</button>
     </div>
     <div style="margin-top:8px;font-size:.74rem;color:var(--muted);">
-      CSV must have columns: <code>roll_no</code>, <code>name</code> (required) and <code>email</code> (optional).
-      Existing roll numbers are skipped automatically.
+      CSV columns: <code>roll_no</code>, <code>name</code> (required) · <code>email</code>, <code>year</code>, <code>branch</code> (optional). Existing roll numbers are skipped.
     </div>
   </form>
 </div>
@@ -81,7 +133,7 @@
     <thead>
       <tr>
         <th><input type="checkbox" id="select-all" onchange="toggleAll(this)" style="width:auto;"/></th>
-        <th>Roll No</th><th>Name</th><th>Email</th>
+        <th>Roll No</th><th>Name</th><th>Year</th><th>Branch</th><th>Email</th>
         {% for code,name in subjects.items() %}<th>{{ code }} %</th>{% endfor %}
         <th>Risk</th>
         <th>Actions</th>
@@ -96,6 +148,8 @@
       <td><input type="checkbox" class="row-check" data-id="{{ s.id }}" style="width:auto;" onchange="updateBulkBar()"/></td>
       <td><code style="font-family:var(--mono);font-size:.82rem;color:var(--a2);">{{ s.roll_no }}</code></td>
       <td style="font-size:.85rem;">{{ s.name }}</td>
+      <td style="font-size:.75rem;color:var(--muted);">{{ s.year or '—' }}</td>
+      <td style="font-size:.75rem;color:var(--muted);">{{ s.branch or '—' }}</td>
       <td style="font-size:.78rem;color:var(--muted);">{{ s.email or '—' }}</td>
       {% for sm in d.summary %}
       <td>
@@ -127,7 +181,9 @@
     </tbody>
   </table>
   {% else %}
-  <div style="text-align:center;padding:30px;color:var(--muted);">No students yet.</div>
+  <div style="text-align:center;padding:30px;color:var(--muted);">
+    {% if year_filter or branch_filter %}No students found for this filter.{% else %}No students yet.{% endif %}
+  </div>
   {% endif %}
 </div>
 
@@ -222,10 +278,9 @@ function updateLabel(input) {
   }
 }
 
-// Init count
 window.addEventListener('DOMContentLoaded', () => {
   const rows = document.querySelectorAll('#student-table tbody tr');
-  document.getElementById('count-label').textContent = `Showing ${rows.length} of ${rows.length} students`;
+  if (rows.length) document.getElementById('count-label').textContent = `Showing ${rows.length} of ${rows.length} students`;
 });
 </script>
 {% endblock %}

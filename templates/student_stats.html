@@ -4,9 +4,17 @@
 <div class="pt" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
   <div>
     <h1>📊 {{ student.name }}</h1>
-    <p><code style="font-family:var(--mono);color:var(--a2);">{{ student.roll_no }}</code>
-       {% if student.email %}&nbsp;·&nbsp;<span style="color:var(--muted);">{{ student.email }}</span>{% endif %}
-       &nbsp;·&nbsp; {{ today }}</p>
+    <p>
+      <code style="font-family:var(--mono);color:var(--a2);">{{ student.roll_no }}</code>
+      {% if student.year or student.branch %}
+      &nbsp;·&nbsp;
+      <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);border-radius:12px;padding:2px 9px;font-size:.75rem;font-weight:700;color:var(--accent);">
+        🎓 {{ student.year }}{% if student.year and student.branch %} · {% endif %}{{ student.branch }}
+      </span>
+      {% endif %}
+      {% if student.email %}&nbsp;·&nbsp;<span style="color:var(--muted);">{{ student.email }}</span>{% endif %}
+      &nbsp;·&nbsp; {{ today }}
+    </p>
   </div>
   <a href="{{ url_for('download_student_report', roll=student.roll_no) }}"
      class="btn btn-p" style="flex-shrink:0;align-self:center;">

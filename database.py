@@ -8,6 +8,7 @@ Features:
 - Full audit trail
 - Dynamic subject management
 - Advanced analytics
+- Year & Branch filtering
 """
 import sqlite3, hashlib, os
 from datetime import datetime
@@ -20,6 +21,9 @@ SUBJECTS = {
     'DS': 'Data Structures',
     'DM': 'Discrete Mathematics',
 }
+
+YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year']
+BRANCHES = ['CSE', 'IT', 'ECE', 'ME', 'CE', 'EEE']
 
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
@@ -41,14 +45,21 @@ def init_db():
         name TEXT NOT NULL,
         email TEXT DEFAULT '',
         phone TEXT DEFAULT '',
+        year TEXT DEFAULT '',
+        branch TEXT DEFAULT '',
         created_at TEXT DEFAULT (datetime('now')),
         risk_score REAL DEFAULT 0.0)""")
 
-    # Add email column if it doesn't exist (migration for existing DBs)
-    try:
-        c.execute("ALTER TABLE students ADD COLUMN email TEXT DEFAULT ''")
-    except Exception:
-        pass
+    # Migrations for existing DBs
+    for col, defval in [
+        ('email', "''"),
+        ('year',  "''"),
+        ('branch',"''"),
+    ]:
+        try:
+            c.execute(f"ALTER TABLE students ADD COLUMN {col} TEXT DEFAULT {defval}")
+        except Exception:
+            pass
 
     c.execute("""CREATE TABLE IF NOT EXISTS subjects (
         code TEXT PRIMARY KEY,
@@ -60,6 +71,8 @@ def init_db():
         token TEXT UNIQUE NOT NULL,
         subject TEXT NOT NULL,
         label TEXT DEFAULT '',
+        year TEXT DEFAULT '',
+        branch TEXT DEFAULT '',
         created_at TEXT NOT NULL,
         expires_at TEXT,
         created_by TEXT NOT NULL,
@@ -70,11 +83,16 @@ def init_db():
         notes TEXT DEFAULT '',
         is_active INTEGER DEFAULT 1)""")
 
-    # Add notes column if it doesn't exist
-    try:
-        c.execute("ALTER TABLE qr_sessions ADD COLUMN notes TEXT DEFAULT ''")
-    except Exception:
-        pass
+    # Migrations for qr_sessions
+    for col, defval in [
+        ('notes',  "''"),
+        ('year',   "''"),
+        ('branch', "''"),
+    ]:
+        try:
+            c.execute(f"ALTER TABLE qr_sessions ADD COLUMN {col} TEXT DEFAULT {defval}")
+        except Exception:
+            pass
 
     c.execute("""CREATE TABLE IF NOT EXISTS attendance (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -277,15 +295,16 @@ def get_teacher():
 
 
 # ── Students ──────────────────────────────────────────────────────────────────
-def get_or_create_student(roll_no, name='', phone='', email=''):
+def get_or_create_student(roll_no, name='', phone='', email='', year='', branch=''):
     roll_no = roll_no.strip().upper()
     conn = get_conn()
     row = conn.execute("SELECT * FROM students WHERE roll_no=?", (roll_no,)).fetchone()
     if row:
         conn.close()
         return dict(row), False
-    conn.execute("INSERT INTO students (roll_no, name, phone, email) VALUES (?,?,?,?)",
-                 (roll_no, name or roll_no, phone, email))
+    conn.execute(
+        "INSERT INTO students (roll_no, name, phone, email, year, branch) VALUES (?,?,?,?,?,?)",
+        (roll_no, name or roll_no, phone, email, year, branch))
     conn.commit()
     row = conn.execute("SELECT * FROM students WHERE roll_no=?", (roll_no,)).fetchone()
     conn.close()
@@ -330,13 +349,13 @@ def bulk_delete_students(student_ids):
 # ── QR Sessions ───────────────────────────────────────────────────────────────
 def create_qr_session(token, subject, label, expires_at, teacher_name,
                       allowed_ip_prefix='', class_start=None, class_end=None,
-                      max_scans=999, notes=''):
+                      max_scans=999, notes='', year='', branch=''):
     conn = get_conn()
     conn.execute("""INSERT INTO qr_sessions
-        (token, subject, label, created_at, expires_at, created_by,
+        (token, subject, label, year, branch, created_at, expires_at, created_by,
          allowed_ip_prefix, class_start, class_end, max_scans, notes)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-        (token, subject, label, datetime.now().isoformat(),
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (token, subject, label, year, branch, datetime.now().isoformat(),
          expires_at, teacher_name, allowed_ip_prefix,
          class_start, class_end, max_scans, notes))
     conn.execute("INSERT OR IGNORE INTO total_classes VALUES (?,0)", (subject,))
@@ -462,17 +481,27 @@ def get_student_stats(student_id):
 def get_session_attendees(session_id):
     conn = get_conn()
     rows = conn.execute("""
-        SELECT s.id as student_id, s.roll_no, s.name, a.marked_at,
-               a.ip_address, a.risk_score, a.flagged, a.flag_reason
+        SELECT s.id as student_id, s.roll_no, s.name, s.year, s.branch,
+               a.marked_at, a.ip_address, a.risk_score, a.flagged, a.flag_reason
         FROM attendance a JOIN students s ON s.id=a.student_id
         WHERE a.session_id=? ORDER BY a.marked_at""", (session_id,)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
-def get_all_students_report():
+def get_all_students_report(year_filter='', branch_filter=''):
     conn = get_conn()
     subjects = get_all_subjects()
-    students = conn.execute("SELECT * FROM students ORDER BY roll_no").fetchall()
+    query = "SELECT * FROM students"
+    params = []
+    conditions = []
+    if year_filter:
+        conditions.append("year=?"); params.append(year_filter)
+    if branch_filter:
+        conditions.append("branch=?"); params.append(branch_filter)
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += " ORDER BY roll_no"
+    students = conn.execute(query, params).fetchall()
     totals   = {r['subject']: r['count'] for r in
                 conn.execute("SELECT subject, count FROM total_classes").fetchall()}
     result = []
@@ -574,46 +603,38 @@ def get_advanced_analytics():
     totals = {r['subject']: r['count'] for r in
               conn.execute("SELECT subject, count FROM total_classes").fetchall()}
     total_classes = sum(totals.values()) or 1
-    students = conn.execute("SELECT * FROM students ORDER BY roll_no").fetchall()
-    absent_list = []
+
+    students = conn.execute("SELECT * FROM students").fetchall()
+    absence_data = []
     for s in students:
         s = dict(s)
-        att = conn.execute(
+        att_count = conn.execute(
             "SELECT COUNT(*) as cnt FROM attendance WHERE student_id=?",
             (s['id'],)).fetchone()['cnt']
-        pct = round(att / total_classes * 100, 1) if total_classes else 0
-        absent_list.append({**s, 'attended': att, 'pct': pct})
-    absent_list.sort(key=lambda x: x['pct'])
-    top_absent = absent_list[:5]
+        absence_rate = 1 - (att_count / total_classes)
+        absence_data.append({**s, 'absence_rate': round(absence_rate * 100, 1)})
+    absence_data.sort(key=lambda x: x['absence_rate'], reverse=True)
+    top_absent = absence_data[:5]
 
-    # Attendance by day of week
-    dow_counts = {}
-    for i in range(7):
-        dow_counts[i] = 0
-    rows = conn.execute("SELECT marked_at FROM attendance").fetchall()
-    for r in rows:
-        try:
-            d = datetime.fromisoformat(r['marked_at'])
-            dow_counts[d.weekday()] = dow_counts.get(d.weekday(), 0) + 1
-        except Exception:
-            pass
-
-    # Summary stats
-    total_students = conn.execute("SELECT COUNT(*) as cnt FROM students").fetchone()['cnt']
-    total_sessions = conn.execute("SELECT COUNT(*) as cnt FROM qr_sessions").fetchone()['cnt']
-    total_att      = conn.execute("SELECT COUNT(*) as cnt FROM attendance").fetchone()['cnt']
-    total_anomalies= conn.execute("SELECT COUNT(*) as cnt FROM anomalies").fetchone()['cnt']
-    avg_session    = round(total_att / total_sessions, 1) if total_sessions else 0
+    # Subject-wise average
+    subj_avg = {}
+    for code in subjects:
+        tot = totals.get(code, 0)
+        if tot == 0:
+            subj_avg[code] = 0
+            continue
+        avg = conn.execute("""
+            SELECT AVG(sub.cnt) as avg FROM (
+                SELECT COUNT(*) as cnt FROM attendance
+                WHERE subject=? GROUP BY student_id
+            ) sub
+        """, (code,)).fetchone()['avg']
+        subj_avg[code] = round((avg or 0) / tot * 100, 1)
 
     conn.close()
     return {
         'trend': trend,
-        'subjects': subjects,
         'top_absent': top_absent,
-        'dow_counts': dow_counts,
-        'total_students': total_students,
-        'total_sessions': total_sessions,
-        'total_att': total_att,
-        'total_anomalies': total_anomalies,
-        'avg_session': avg_session,
+        'subj_avg': subj_avg,
+        'subjects': subjects,
     }

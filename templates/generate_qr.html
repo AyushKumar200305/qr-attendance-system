@@ -22,7 +22,7 @@
   <div class="card" style="margin-bottom:20px;">
     <form method="POST">
       <div class="fg">
-        <label class="lbl">Subject</label>
+        <label class="lbl">Subject <span style="color:var(--bad);">*</span></label>
         {% for code,name in subjects.items() %}
         <label class="subj-opt">
           <input type="radio" name="subject" value="{{ code }}" required/>
@@ -31,6 +31,29 @@
         </label>
         {% endfor %}
       </div>
+
+      <!-- Year & Branch — mandatory -->
+      <div class="g2">
+        <div class="fg">
+          <label class="lbl">Year <span style="color:var(--bad);">*</span></label>
+          <select name="year" required>
+            <option value="">— Select Year —</option>
+            {% for y in years %}
+            <option value="{{ y }}">{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fg">
+          <label class="lbl">Branch <span style="color:var(--bad);">*</span></label>
+          <select name="branch" required>
+            <option value="">— Select Branch —</option>
+            {% for b in branches %}
+            <option value="{{ b }}">{{ b }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
       <div class="fg">
         <label class="lbl">Session Label <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
         <input name="label" placeholder="e.g. Week 5 Lecture, Lab 3"/>
@@ -64,6 +87,11 @@
   <div class="card" style="border-color:rgba(16,185,129,.4);text-align:center;">
     <div style="margin-bottom:14px;">
       <span class="b b-{{ qr_data.subject }}" style="font-size:.88rem;padding:4px 14px;">{{ qr_data.subject_name }}</span>
+      {% if qr_data.year or qr_data.branch %}
+      <span style="display:inline-flex;align-items:center;gap:5px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:20px;padding:3px 12px;font-size:.78rem;font-weight:700;color:var(--accent);margin-left:6px;">
+        🎓 {{ qr_data.year }}{% if qr_data.year and qr_data.branch %} · {% endif %}{{ qr_data.branch }}
+      </span>
+      {% endif %}
       {% if qr_data.label and qr_data.label != qr_data.subject_name %}
       <div style="font-size:.82rem;color:var(--muted);margin-top:5px;">{{ qr_data.label }}</div>
       {% endif %}
@@ -112,9 +140,14 @@
        style="display:none;position:fixed;inset:0;background:#fff;z-index:9999;
               flex-direction:column;align-items:center;justify-content:center;
               cursor:pointer;padding:20px;">
-    <div style="color:#000;font-size:1.4rem;font-weight:900;margin-bottom:4px;">
+    <div style="color:#000;font-size:1.4rem;font-weight:900;margin-bottom:2px;">
       {{ qr_data.subject_name }}{% if qr_data.label and qr_data.label != qr_data.subject_name %} — {{ qr_data.label }}{% endif %}
     </div>
+    {% if qr_data.year or qr_data.branch %}
+    <div style="color:#6366f1;font-size:.9rem;font-weight:700;margin-bottom:2px;">
+      🎓 {{ qr_data.year }}{% if qr_data.year and qr_data.branch %} · {% endif %}{{ qr_data.branch }}
+    </div>
+    {% endif %}
     <div style="color:#666;font-size:.85rem;margin-bottom:16px;">{{ today }}</div>
     <img src="data:image/png;base64,{{ qr_data.b64 }}"
          style="width:min(72vw,72vh);height:min(72vw,72vh);image-rendering:pixelated;"/>
