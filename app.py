@@ -343,9 +343,11 @@ def public_student_stats(roll):
 @app.route('/teacher/announcements/add', methods=['POST'])
 @teacher_required
 def add_announcement_route():
-    title    = request.form.get('title', '').strip()
-    body     = request.form.get('body', '').strip()
-    priority = request.form.get('priority', 'normal')
+    title         = request.form.get('title', '').strip()
+    body          = request.form.get('body', '').strip()
+    priority      = request.form.get('priority', 'normal')
+    ann_year      = request.form.get('ann_year', '').strip()
+    ann_branch    = request.form.get('ann_branch', '').strip()
     if not title or not body:
         flash('Title and message are required.', 'danger')
         return redirect(url_for('teacher_dashboard'))
@@ -400,13 +402,21 @@ def add_announcement_route():
 </html>"""
 
     conn = get_conn()
+    yr_cond = " AND year=?"   if ann_year   else ""
+    br_cond = " AND branch=?" if ann_branch else ""
+    params  = tuple(v for v in [ann_year, ann_branch] if v)
     students = conn.execute(
-        "SELECT * FROM students WHERE email != '' AND email IS NOT NULL"
+        f"SELECT * FROM students WHERE email != '' AND email IS NOT NULL{yr_cond}{br_cond}",
+        params
     ).fetchall()
     conn.close()
 
+    filter_desc = ""
+    if ann_year or ann_branch:
+        filter_desc = " (" + " · ".join(v for v in [ann_year, ann_branch] if v) + ")"
+
     if not students:
-        flash('No students with email addresses found.', 'danger')
+        flash(f'No students with email addresses found{filter_desc}.', 'danger')
         return redirect(url_for('teacher_dashboard'))
 
     subject_line = f"[{label}] {title}"
@@ -417,7 +427,7 @@ def add_announcement_route():
         else:  failed += 1
 
     if sent:
-        flash(f'Announcement emailed to {sent} student(s).', 'success')
+        flash(f'Announcement emailed to {sent} student(s){filter_desc}.', 'success')
     if failed:
         flash(f'{failed} email(s) failed to send.', 'danger')
     return redirect(url_for('teacher_dashboard'))
@@ -893,22 +903,56 @@ def teacher_logout():
 @app.route('/teacher/dashboard')
 @teacher_required
 def teacher_dashboard():
-    sessions  = get_all_sessions()
-    now_iso   = datetime.now().isoformat()
-    for s in sessions:
+    year_filter   = request.args.get('year', '').strip()
+    branch_filter = request.args.get('branch', '').strip()
+
+    all_sessions = get_all_sessions()
+    now_iso = datetime.now().isoformat()
+    for s in all_sessions:
         s['active'] = s['is_active'] and (
             s['expires_at'] is None or s['expires_at'] > now_iso)
+
+    # Filter sessions by year/branch if selected
+    sessions = all_sessions
+    if year_filter:
+        sessions = [s for s in sessions if s.get('year') == year_filter]
+    if branch_filter:
+        sessions = [s for s in sessions if s.get('branch') == branch_filter]
+
     insights  = get_class_insights()
     heatmap   = get_attendance_heatmap(14)
     anomalies = get_anomalies(5)
     subjects  = get_all_subjects()
     has_smtp  = bool(GMAIL_USER and GMAIL_APP_PASS)
     schedule  = get_email_schedule()
+
     conn = get_conn()
-    total_students = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
-    total_sessions = conn.execute("SELECT COUNT(*) FROM qr_sessions").fetchone()[0]
-    total_att      = conn.execute("SELECT COUNT(*) FROM attendance").fetchone()[0]
+    # Build filtered counts based on year/branch selection
+    yr_cond = " AND year=?" if year_filter else ""
+    br_cond = " AND branch=?" if branch_filter else ""
+    params  = tuple(v for v in [year_filter, branch_filter] if v)
+
+    total_students = conn.execute(
+        f"SELECT COUNT(*) FROM students WHERE 1=1{yr_cond}{br_cond}", params
+    ).fetchone()[0]
+
+    # total_sessions & total_att filtered by joining qr_sessions year/branch
+    if year_filter or branch_filter:
+        sess_yr = " AND year=?" if year_filter else ""
+        sess_br = " AND branch=?" if branch_filter else ""
+        total_sessions = conn.execute(
+            f"SELECT COUNT(*) FROM qr_sessions WHERE 1=1{sess_yr}{sess_br}", params
+        ).fetchone()[0]
+        total_att = conn.execute(
+            f"""SELECT COUNT(*) FROM attendance a
+                JOIN qr_sessions q ON a.session_id=q.id
+                WHERE 1=1{sess_yr}{sess_br}""", params
+        ).fetchone()[0]
+    else:
+        total_sessions = conn.execute("SELECT COUNT(*) FROM qr_sessions").fetchone()[0]
+        total_att      = conn.execute("SELECT COUNT(*) FROM attendance").fetchone()[0]
     conn.close()
+
     return render_template('teacher_dashboard.html',
         sessions=sessions, subjects=subjects,
         teacher=get_teacher(), today=now_str(),
@@ -917,7 +961,9 @@ def teacher_dashboard():
         schedule=schedule, announcements=get_announcements(),
         total_students=total_students,
         total_sessions=total_sessions,
-        total_att=total_att)
+        total_att=total_att,
+        years=YEARS, branches=BRANCHES,
+        year_filter=year_filter, branch_filter=branch_filter)
 
 
 # ── GENERATE QR ───────────────────────────────────────────────────────────────

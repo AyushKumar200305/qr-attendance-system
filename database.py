@@ -609,6 +609,13 @@ def get_advanced_analytics():
     subjects = get_all_subjects()
     today = datetime.now()
 
+    # Top-level stat counts
+    total_students   = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+    total_sessions   = conn.execute("SELECT COUNT(*) FROM qr_sessions").fetchone()[0]
+    total_att        = conn.execute("SELECT COUNT(*) FROM attendance").fetchone()[0]
+    avg_session      = round(total_att / total_sessions, 1) if total_sessions else 0
+    total_anomalies  = conn.execute("SELECT COUNT(*) FROM anomalies").fetchone()[0]
+
     # Per-subject attendance trend last 30 days
     trend = {}
     for code in subjects:
@@ -622,24 +629,32 @@ def get_advanced_analytics():
             daily[d] = cnt
         trend[code] = daily
 
-    # Top 5 most absent students
+    # Day-of-week breakdown (0=Mon … 6=Sun)
+    dow_counts = {i: 0 for i in range(7)}
+    for row in conn.execute("SELECT marked_at FROM attendance").fetchall():
+        try:
+            dow_counts[datetime.fromisoformat(row['marked_at']).weekday()] += 1
+        except Exception:
+            pass
+
+    # Total classes per subject
     totals = {r['subject']: r['count'] for r in
               conn.execute("SELECT subject, count FROM total_classes").fetchall()}
     total_classes = sum(totals.values()) or 1
 
-    students = conn.execute("SELECT * FROM students").fetchall()
+    # Top 5 most absent students (lowest attendance %)
     absence_data = []
-    for s in students:
+    for s in conn.execute("SELECT * FROM students").fetchall():
         s = dict(s)
         att_count = conn.execute(
             "SELECT COUNT(*) as cnt FROM attendance WHERE student_id=?",
             (s['id'],)).fetchone()['cnt']
-        absence_rate = 1 - (att_count / total_classes)
-        absence_data.append({**s, 'absence_rate': round(absence_rate * 100, 1)})
-    absence_data.sort(key=lambda x: x['absence_rate'], reverse=True)
+        pct = round(att_count / total_classes * 100, 1) if total_classes else 0
+        absence_data.append({**s, 'attended': att_count, 'pct': pct})
+    absence_data.sort(key=lambda x: x['pct'])
     top_absent = absence_data[:5]
 
-    # Subject-wise average
+    # Subject-wise class average %
     subj_avg = {}
     for code in subjects:
         tot = totals.get(code, 0)
@@ -656,8 +671,10 @@ def get_advanced_analytics():
 
     conn.close()
     return {
-        'trend': trend,
-        'top_absent': top_absent,
-        'subj_avg': subj_avg,
-        'subjects': subjects,
+        'trend': trend, 'top_absent': top_absent,
+        'subj_avg': subj_avg, 'subjects': subjects,
+        'dow_counts': dow_counts,
+        'total_students': total_students, 'total_sessions': total_sessions,
+        'total_att': total_att, 'avg_session': avg_session,
+        'total_anomalies': total_anomalies,
     }

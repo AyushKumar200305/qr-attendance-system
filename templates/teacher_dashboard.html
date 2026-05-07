@@ -79,6 +79,35 @@
   </a>
 </div>
 
+<!-- YEAR / BRANCH FILTER -->
+<form method="GET" action="{{ url_for('teacher_dashboard') }}"
+      style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+             margin-bottom:20px;padding:12px 16px;
+             background:var(--surf);border:1px solid var(--border);border-radius:12px;">
+  <span style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Filter View</span>
+  <select name="year" style="width:auto;padding:7px 12px;font-size:.82rem;flex:1;min-width:120px;">
+    <option value="">All Years</option>
+    {% for y in years %}
+    <option value="{{ y }}" {% if year_filter==y %}selected{% endif %}>{{ y }}</option>
+    {% endfor %}
+  </select>
+  <select name="branch" style="width:auto;padding:7px 12px;font-size:.82rem;flex:1;min-width:100px;">
+    <option value="">All Branches</option>
+    {% for b in branches %}
+    <option value="{{ b }}" {% if branch_filter==b %}selected{% endif %}>{{ b }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-p" style="padding:7px 18px;font-size:.82rem;flex-shrink:0;">Apply</button>
+  {% if year_filter or branch_filter %}
+  <a href="{{ url_for('teacher_dashboard') }}" class="btn" style="padding:7px 14px;font-size:.82rem;color:var(--muted);flex-shrink:0;">✕ Clear</a>
+  {% endif %}
+  {% if year_filter or branch_filter %}
+  <span style="font-size:.75rem;color:var(--accent);font-weight:700;margin-left:4px;">
+    Showing: {{ year_filter or 'All Years' }} · {{ branch_filter or 'All Branches' }}
+  </span>
+  {% endif %}
+</form>
+
 <!-- STAT CARDS -->
 <div class="stat-grid">
   <div class="stat-card">
@@ -315,7 +344,7 @@
 <div class="mini-card" style="margin-bottom:20px;">
   <div class="section-title">Email Announcement</div>
   <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px;">
-    Compose a message below and click <strong style="color:var(--text);">Send to All</strong> — it will be emailed immediately to every registered student.
+    Compose a message and optionally filter by Year/Branch — it will be emailed immediately to matching students.
   </p>
   <form method="POST" action="{{ url_for('add_announcement_route') }}">
     <div style="display:flex;flex-direction:column;gap:8px;">
@@ -328,10 +357,26 @@
           <option value="urgent">Urgent</option>
         </select>
       </div>
+      <!-- Year / Branch audience filter -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:.73rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Send to:</span>
+        <select name="ann_year" style="width:auto;padding:7px 12px;font-size:.82rem;flex:1;min-width:120px;">
+          <option value="">All Years</option>
+          {% for y in years %}
+          <option value="{{ y }}">{{ y }}</option>
+          {% endfor %}
+        </select>
+        <select name="ann_branch" style="width:auto;padding:7px 12px;font-size:.82rem;flex:1;min-width:100px;">
+          <option value="">All Branches</option>
+          {% for b in branches %}
+          <option value="{{ b }}">{{ b }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <textarea name="body" placeholder="Write your message here…" required rows="3"
                 style="resize:vertical;"></textarea>
       <div>
-        <button type="submit" class="btn btn-p" style="padding:8px 20px;">Send to All Students</button>
+        <button type="submit" class="btn btn-p" style="padding:8px 20px;">Send Announcement</button>
       </div>
     </div>
   </form>
