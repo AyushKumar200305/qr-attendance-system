@@ -329,6 +329,13 @@ def update_student_name(roll_no, name):
                  (name.strip(), roll_no.upper()))
     conn.commit(); conn.close()
 
+def update_student(student_id, name, email, year, branch):
+    conn = get_conn()
+    conn.execute(
+        "UPDATE students SET name=?, email=?, year=?, branch=? WHERE id=?",
+        (name.strip(), email.strip(), year.strip(), branch.strip(), student_id))
+    conn.commit(); conn.close()
+
 def delete_student(student_id):
     conn = get_conn()
     conn.execute("DELETE FROM attendance WHERE student_id=?", (student_id,))

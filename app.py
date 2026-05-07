@@ -14,7 +14,7 @@ from flask import (Flask, render_template, request, redirect,
 from database import (
     init_db, teacher_exists, setup_teacher, verify_teacher_pin, get_teacher,
     get_or_create_student, get_student_by_roll, get_student_by_id,
-    update_student_name,
+    update_student_name, update_student,
     create_qr_session, get_session_by_token, is_session_active,
     get_all_sessions, delete_session, deactivate_session,
     mark_attendance, remove_attendance, add_manual_attendance,
@@ -1097,6 +1097,33 @@ def delete_student_route(student_id):
     delete_student(student_id)
     flash('Student deleted.','success')
     return redirect(url_for('all_students'))
+
+@app.route('/teacher/students/edit/<int:student_id>', methods=['GET', 'POST'])
+@teacher_required
+def edit_student_route(student_id):
+    student = get_student_by_id(student_id)
+    if not student:
+        flash('Student not found.', 'danger')
+        return redirect(url_for('all_students'))
+    back_url = request.args.get('back', url_for('all_students'))
+    if request.method == 'POST':
+        name   = request.form.get('name', '').strip()
+        email  = request.form.get('email', '').strip()
+        year   = request.form.get('year', '').strip()
+        branch = request.form.get('branch', '').strip()
+        if not name:
+            flash('Name is required.', 'danger')
+        elif not year:
+            flash('Year is required.', 'danger')
+        elif not branch:
+            flash('Branch is required.', 'danger')
+        else:
+            update_student(student_id, name, email, year, branch)
+            flash(f'{student["roll_no"]} updated successfully.', 'success')
+            return redirect(back_url)
+    return render_template('edit_student.html',
+        student=student, years=YEARS, branches=BRANCHES,
+        back_url=back_url, today=now_str())
 
 @app.route('/teacher/students/sample-csv')
 @teacher_required

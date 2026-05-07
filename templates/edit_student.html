@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Edit Student — {{ student.roll_no }}{% endblock %}
+{% block content %}
+<div style="max-width:560px;margin:0 auto;">
+  <div class="pt">
+    <h1>✏️ Edit Student</h1>
+    <p>
+      <code style="font-family:var(--mono);color:var(--a2);">{{ student.roll_no }}</code>
+      &nbsp;·&nbsp; <span style="color:var(--muted);">Roll number cannot be changed.</span>
+    </p>
+  </div>
+
+  <div class="card">
+    <form method="POST">
+      <div class="fg">
+        <label class="lbl">Roll Number</label>
+        <div style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;
+             padding:11px 14px;font-family:var(--mono);font-weight:700;color:var(--muted);font-size:.9rem;
+             display:flex;align-items:center;gap:8px;">
+          {{ student.roll_no }}
+          <span style="font-size:.72rem;font-family:inherit;font-weight:400;margin-left:auto;color:var(--muted);">Read-only</span>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label class="lbl">Full Name <span style="color:var(--bad);">*</span></label>
+        <input name="name" value="{{ student.name }}" required
+               placeholder="e.g. Ali Raza" autofocus/>
+      </div>
+
+      <div class="fg">
+        <label class="lbl">Email <span style="font-weight:400;color:var(--muted);">(for reports)</span></label>
+        <input name="email" type="email" value="{{ student.email or '' }}"
+               placeholder="e.g. ali@example.com"/>
+      </div>
+
+      <div class="g2">
+        <div class="fg">
+          <label class="lbl">Year <span style="color:var(--bad);">*</span></label>
+          <select name="year" required>
+            <option value="">— Select Year —</option>
+            {% for y in years %}
+            <option value="{{ y }}" {% if student.year == y %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fg">
+          <label class="lbl">Branch <span style="color:var(--bad);">*</span></label>
+          <select name="branch" required>
+            <option value="">— Select Branch —</option>
+            {% for b in branches %}
+            <option value="{{ b }}" {% if student.branch == b %}selected{% endif %}>{{ b }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button type="submit" class="btn btn-p btn-bl" style="flex:1;">
+          💾 Save Changes
+        </button>
+        <a href="{{ back_url }}" class="btn btn-s" style="flex-shrink:0;align-self:center;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+
+  <!-- DANGER ZONE -->
+  <div class="card" style="border-color:rgba(239,68,68,.3);margin-top:14px;">
+    <div style="font-size:.78rem;font-weight:700;color:var(--bad);margin-bottom:10px;">⚠️ Danger Zone</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div style="font-size:.82rem;color:var(--muted);">
+        Deleting this student also removes <strong>all their attendance records</strong>.
+        This cannot be undone.
+      </div>
+      <form method="POST" action="{{ url_for('delete_student_route', student_id=student.id) }}">
+        <button type="submit" class="btn btn-bad"
+                onclick="return confirm('Permanently delete {{ student.name }} and all their attendance records?')">
+          🗑 Delete Student
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
