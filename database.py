@@ -493,8 +493,10 @@ def get_student_stats(student_id):
     for code, name in subjects.items():
         att = attended.get(code, 0)
         tot = totals.get(code, 0)
-        pct = round(att/tot*100, 1) if tot else 0.0
-        status = 'safe' if pct >= 75 else ('warning' if pct >= 50 else 'danger')
+        if tot == 0:
+            continue  # subject has no sessions yet — skip rather than show misleading 0%
+        pct = round(att/tot*100, 1)
+        status = 'safe' if pct >= 75 else ('warning' if pct >= 60 else 'danger')
         records.append({'code': code, 'name': name, 'attended': att,
                         'total': tot, 'percentage': pct, 'status': status})
     return records, [dict(r) for r in log]
@@ -537,7 +539,7 @@ def get_all_students_report(year_filter='', branch_filter=''):
             tot = totals.get(code, 0)
             pct = round(att/tot*100,1) if tot else 0.0
             summary.append({'code': code, 'name': name, 'att': att, 'tot': tot, 'pct': pct,
-                             'status': 'safe' if pct>=75 else ('warn' if pct>=50 else 'danger')})
+                             'status': 'safe' if pct>=75 else ('warn' if pct>=60 else 'danger')})
         result.append({'student': s, 'summary': summary})
     conn.close()
     return result

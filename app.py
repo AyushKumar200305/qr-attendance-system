@@ -627,17 +627,19 @@ def download_student_report(roll):
         story.append(Spacer(1, 0.3*cm))
 
         # ── Student Info Table ────────────────────────────────────────────────
-        overall_pct = round(sum(r['percentage'] for r in records) / len(records), 1) if records else 0
+        active_records = [r for r in records if r['total'] > 0]
+        overall_pct = round(sum(r['percentage'] for r in active_records) / len(active_records), 1) if active_records else 0
         worst_risk  = 'safe'
-        for r in records:
+        for r in active_records:
             if r['status'] == 'danger':   worst_risk = 'danger'
             elif r['status'] == 'warning' and worst_risk == 'safe': worst_risk = 'warning'
 
         info_data = [
             ['Name',         student['name']],
             ['Roll No',      student['roll_no']],
+            ['Year / Branch', f"{student.get('year','') or '—'}  ·  {student.get('branch','') or '—'}"],
             ['Email',        student.get('email', '') or 'N/A'],
-            ['Overall %',    f"{overall_pct}%"],
+            ['Overall %',    f"{overall_pct}%  (subjects with sessions only)"],
             ['Risk Status',  worst_risk.upper()],
             ['Generated',    datetime.now().strftime('%d %B %Y, %H:%M')],
         ]
@@ -697,7 +699,7 @@ def download_student_report(roll):
         # ── Subject Breakdown Table ───────────────────────────────────────────
         story.append(Paragraph('<b>Subject Breakdown</b>', styles['Heading3']))
         tbl_data = [['Subject', 'Code', 'Attended', 'Total', '%', 'Status']]
-        for r in records:
+        for r in active_records:
             rd = risk_data.get(r['code'], {})
             risk_label = rd.get('risk', r['status']).upper() if rd else r['status'].upper()
             tbl_data.append([
@@ -715,7 +717,7 @@ def download_student_report(roll):
             ('PADDING',    (0,0), (-1,-1), 6),
             ('ALIGN',      (2,0), (-1,-1), 'CENTER'),
         ])
-        for i, r in enumerate(records, 1):
+        for i, r in enumerate(active_records, 1):
             if r['status'] == 'safe':
                 subj_style.add('TEXTCOLOR', (5, i), (5, i), colors.HexColor('#10b981'))
             elif r['status'] == 'warning':
