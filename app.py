@@ -14,7 +14,7 @@ from flask import (Flask, render_template, request, redirect,
 from database import (
     init_db, teacher_exists, setup_teacher, verify_teacher_pin, get_teacher,
     get_or_create_student, get_student_by_roll, get_student_by_id,
-    update_student_name, update_student,
+    update_student_name, update_student, get_student_sessions_with_status,
     create_qr_session, get_session_by_token, is_session_active,
     get_all_sessions, delete_session, deactivate_session,
     mark_attendance, remove_attendance, add_manual_attendance,
@@ -1044,6 +1044,58 @@ def remove_attendance_route():
         remove_attendance(student_id, session_id)
         flash('Attendance record removed.','success')
     return redirect(url_for('session_detail', sess_id=sess_id or session_id))
+
+@app.route('/teacher/students/<int:student_id>/attendance', methods=['GET', 'POST'])
+@teacher_required
+def correct_attendance_route(student_id):
+    student = get_student_by_id(student_id)
+    if not student:
+        flash('Student not found.', 'danger')
+        return redirect(url_for('all_students'))
+
+    subjects = get_all_subjects()
+
+    if request.method == 'POST':
+        # The form sends the set of session IDs that should be marked as attended
+        checked_ids = set(int(x) for x in request.form.getlist('attended_sessions'))
+
+        # Get current state for this student
+        all_sess = get_student_sessions_with_status(student_id)
+        added = removed = 0
+
+        for s in all_sess:
+            sid = s['id']
+            was_attended = bool(s['attended'])
+            should_attend = sid in checked_ids
+
+            if should_attend and not was_attended:
+                # Add manual attendance
+                ok, _ = mark_attendance(
+                    student_id, sid, s['subject'],
+                    ip='manual', device_hash='manual')
+                if ok:
+                    added += 1
+
+            elif not should_attend and was_attended:
+                # Remove attendance
+                remove_attendance(student_id, sid)
+                removed += 1
+
+        parts = []
+        if added:   parts.append(f'{added} session{"s" if added != 1 else ""} marked present')
+        if removed: parts.append(f'{removed} session{"s" if removed != 1 else ""} removed')
+        flash(', '.join(parts) + '.' if parts else 'No changes made.', 'success' if parts else 'info')
+        return redirect(url_for('student_stats', roll=student['roll_no']))
+
+    # GET — build sessions grouped by subject
+    all_sess = get_student_sessions_with_status(student_id)
+    sessions_by_subject = {}
+    for s in all_sess:
+        sessions_by_subject.setdefault(s['subject'], []).append(s)
+
+    return render_template('student_attendance_correction.html',
+        student=student, sessions_by_subject=sessions_by_subject,
+        subjects=subjects, today=now_str())
 
 @app.route('/teacher/attendance/add-manual', methods=['POST'])
 @teacher_required

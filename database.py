@@ -437,6 +437,20 @@ def remove_attendance(student_id, session_id):
                  (student_id, session_id))
     conn.commit(); conn.close()
 
+def get_student_sessions_with_status(student_id):
+    """All sessions with attended flag for this student, ordered by subject then date desc."""
+    conn = get_conn()
+    rows = conn.execute("""
+        SELECT qs.id, qs.subject, qs.label, qs.created_at, qs.year, qs.branch,
+               CASE WHEN a.id IS NOT NULL THEN 1 ELSE 0 END AS attended,
+               a.marked_at, a.ip_address
+        FROM qr_sessions qs
+        LEFT JOIN attendance a ON a.session_id=qs.id AND a.student_id=?
+        ORDER BY qs.subject, qs.created_at DESC
+    """, (student_id,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
 def add_manual_attendance(roll_no, session_id):
     """Manually add attendance for a student to a session."""
     conn = get_conn()

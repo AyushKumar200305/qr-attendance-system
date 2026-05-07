@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Correct Attendance — {{ student.roll_no }}{% endblock %}
+{% block content %}
+<div class="pt" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>🗓️ Correct Attendance</h1>
+    <p>
+      <code style="font-family:var(--mono);color:var(--a2);">{{ student.roll_no }}</code>
+      &nbsp;·&nbsp; <strong>{{ student.name }}</strong>
+      {% if student.year or student.branch %}
+      &nbsp;·&nbsp;
+      <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);border-radius:12px;padding:2px 9px;font-size:.75rem;font-weight:700;color:var(--accent);">
+        🎓 {{ student.year }}{% if student.year and student.branch %} · {% endif %}{{ student.branch }}
+      </span>
+      {% endif %}
+    </p>
+  </div>
+  <a href="{{ url_for('student_stats', roll=student.roll_no) }}" class="btn btn-s" style="flex-shrink:0;align-self:center;">
+    ← Back to Stats
+  </a>
+</div>
+
+<div class="fl fl-info" style="margin-bottom:18px;">
+  ✅ Tick a session to mark present — untick to remove. Teacher-applied changes are logged as <strong>manual</strong> entries.
+  Changes take effect immediately on Save.
+</div>
+
+{% if sessions_by_subject %}
+<form method="POST" id="correction-form">
+  {% set ns = namespace(changed=0) %}
+
+  <!-- Subject tabs -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="subj-tabs">
+    <button type="button" class="filter-btn active-filter" onclick="showSubject('all',this)">All Subjects</button>
+    {% for subj_code, sess_list in sessions_by_subject.items() %}
+    {% set attended = sess_list | selectattr('attended') | list | length %}
+    <button type="button" class="filter-btn" onclick="showSubject('{{ subj_code }}',this)">
+      <span class="b b-{{ subj_code }}">{{ subj_code }}</span>
+      <span style="margin-left:4px;font-size:.72rem;color:var(--muted);">{{ attended }}/{{ sess_list|length }}</span>
+    </button>
+    {% endfor %}
+  </div>
+
+  {% for subj_code, sess_list in sessions_by_subject.items() %}
+  {% set subj_name = subjects.get(subj_code, subj_code) %}
+  <div class="subj-block" data-subj="{{ subj_code }}" style="margin-bottom:18px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <span class="b b-{{ subj_code }}" style="font-size:.85rem;padding:4px 14px;">{{ subj_name }}</span>
+      <span style="font-size:.78rem;color:var(--muted);">{{ sess_list|length }} session(s)</span>
+      <button type="button" onclick="tickAll('{{ subj_code }}',true)"
+              style="margin-left:auto;padding:4px 12px;border-radius:6px;font-size:.73rem;cursor:pointer;
+                     background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--ok);">
+        ✔ Mark All
+      </button>
+      <button type="button" onclick="tickAll('{{ subj_code }}',false)"
+              style="padding:4px 12px;border-radius:6px;font-size:.73rem;cursor:pointer;
+                     background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);color:var(--bad);">
+        ✕ Clear All
+      </button>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table class="tbl" style="margin:0;">
+        <thead>
+          <tr>
+            <th style="width:48px;text-align:center;">Present</th>
+            <th>Session</th>
+            <th>Date</th>
+            <th>Class (Year · Branch)</th>
+            <th>Entry</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for s in sess_list %}
+        <tr class="sess-row" data-subj="{{ subj_code }}"
+            style="{% if s.attended %}background:rgba(16,185,129,.04);{% endif %}transition:background .15s;">
+          <td style="text-align:center;">
+            <input type="checkbox" name="attended_sessions" value="{{ s.id }}"
+                   class="sess-check subj-{{ subj_code }}"
+                   {% if s.attended %}checked{% endif %}
+                   onchange="rowHighlight(this)"
+                   style="width:18px;height:18px;cursor:pointer;accent-color:var(--ok);"/>
+          </td>
+          <td style="font-size:.85rem;font-weight:{% if s.attended %}600{% else %}400{% endif %};">
+            {{ s.label or s.subject }}
+          </td>
+          <td style="font-size:.78rem;color:var(--muted);">
+            {{ s.created_at[:10] }}
+            <span style="font-size:.7rem;opacity:.7;">{{ s.created_at[11:16] }}</span>
+          </td>
+          <td style="font-size:.75rem;color:var(--muted);">
+            {% if s.year or s.branch %}
+              <span style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.2);
+                   border-radius:10px;padding:1px 8px;font-size:.72rem;color:var(--accent);">
+                {{ s.year }}{% if s.year and s.branch %} · {% endif %}{{ s.branch }}
+              </span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="font-size:.72rem;">
+            {% if s.attended %}
+              {% if s.ip_address == 'manual' %}
+              <span style="color:var(--warn);">✏️ Manual</span>
+              {% else %}
+              <span style="color:var(--ok);">📱 Scan</span>
+              {% endif %}
+              <span style="color:var(--muted);display:block;">{{ s.marked_at[:16] if s.marked_at else '' }}</span>
+            {% else %}
+              <span style="color:var(--muted);">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Sticky save bar -->
+  <div style="position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--border);
+       padding:14px 0;display:flex;align-items:center;gap:12px;z-index:100;">
+    <button type="submit" class="btn btn-ok btn-bl" style="font-size:.95rem;padding:12px 28px;">
+      💾 Save All Changes
+    </button>
+    <a href="{{ url_for('student_stats', roll=student.roll_no) }}" class="btn btn-s">
+      Cancel
+    </a>
+    <span id="change-counter" style="margin-left:auto;font-size:.82rem;color:var(--muted);"></span>
+  </div>
+</form>
+
+{% else %}
+<div class="card" style="text-align:center;padding:40px;color:var(--muted);">
+  No sessions exist yet. Generate a QR code to create sessions.
+</div>
+{% endif %}
+
+<style>
+.filter-btn{padding:6px 14px;border-radius:6px;font-size:.78rem;font-weight:700;
+  cursor:pointer;border:1px solid var(--border);background:var(--surf2);color:var(--muted);transition:all .15s;}
+.filter-btn:hover{border-color:var(--accent);color:var(--text);}
+.active-filter{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important;}
+</style>
+
+<script>
+// Store original state
+const original = {};
+document.querySelectorAll('.sess-check').forEach(cb => {
+  original[cb.value] = cb.checked;
+});
+
+function rowHighlight(cb) {
+  const row = cb.closest('tr');
+  row.style.background = cb.checked ? 'rgba(16,185,129,.06)' : '';
+  updateCounter();
+}
+
+function updateCounter() {
+  let changes = 0;
+  document.querySelectorAll('.sess-check').forEach(cb => {
+    if (cb.checked !== original[cb.value]) changes++;
+  });
+  const el = document.getElementById('change-counter');
+  if (changes === 0) {
+    el.textContent = 'No changes';
+    el.style.color = 'var(--muted)';
+  } else {
+    el.textContent = `${changes} unsaved change${changes !== 1 ? 's' : ''}`;
+    el.style.color = 'var(--warn)';
+  }
+}
+
+function showSubject(subj, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-filter'));
+  btn.classList.add('active-filter');
+  document.querySelectorAll('.subj-block').forEach(block => {
+    block.style.display = (subj === 'all' || block.dataset.subj === subj) ? '' : 'none';
+  });
+}
+
+function tickAll(subj, state) {
+  document.querySelectorAll(`.subj-${subj}`).forEach(cb => {
+    cb.checked = state;
+    rowHighlight(cb);
+  });
+}
+
+// Warn on accidental navigation if there are unsaved changes
+window.addEventListener('beforeunload', e => {
+  let changed = false;
+  document.querySelectorAll('.sess-check').forEach(cb => {
+    if (cb.checked !== original[cb.value]) changed = true;
+  });
+  if (changed) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// Suppress beforeunload on form submit
+document.getElementById('correction-form')?.addEventListener('submit', () => {
+  window.onbeforeunload = null;
+});
+
+updateCounter();
+</script>
+{% endblock %}

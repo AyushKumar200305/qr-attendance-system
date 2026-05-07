@@ -21,6 +21,10 @@
        class="btn btn-s" style="color:var(--warn);border-color:rgba(245,158,11,.3);">
       ✏️ Edit Profile
     </a>
+    <a href="{{ url_for('correct_attendance_route', student_id=student.id) }}"
+       class="btn btn-s" style="color:var(--ok);border-color:rgba(16,185,129,.3);">
+      🗓️ Correct Attendance
+    </a>
     <a href="{{ url_for('download_student_report', roll=student.roll_no) }}"
        class="btn btn-p">
       📄 Download PDF Report
